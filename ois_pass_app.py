@@ -97,13 +97,16 @@ SHEET_HINTS = {
 def _clean(x):
     if pd.isna(x): return ""
     return str(x).strip()
+
 def _norm(s: str) -> str:
     return _clean(s).lower().replace("_"," ").replace("-"," ").replace("  "," ")
+
 def list_sheets(src) -> List[str]:
     try:
         return pd.ExcelFile(src).sheet_names
     except Exception:
         return []
+
 def choose_sheet(sheet_names: List[str], hints: List[str]) -> Optional[str]:
     for name in sheet_names:
         n = _norm(name)
@@ -149,7 +152,6 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
     if found:
         df = df.rename(columns={found:"Group"})
     else:
-        # only fallback if absolutely no group column
         df["Group"] = "All"
     return df
 
@@ -228,64 +230,7 @@ def cluster_scores(df: pd.DataFrame) -> pd.DataFrame:
         if not vals.empty:
             scores[cname] = vals.mean()
     return pd.Series(scores).rename_axis("Cluster").reset_index(name="Score")
-def make_bar(df: pd.DataFrame, title: str):
-    fig, ax = plt.subplots(figsize=(8,4))
-    ax.bar(df["Domain"], df["Score"])
-    ax.set_title(title); ax.set_ylabel("Score"); ax.set_ylim(0,100)
-    ax.set_xticklabels(df["Domain"], rotation=45, ha="right")
-    st.pyplot(fig)
 
-def make_gender_bar(df: pd.DataFrame, title: str):
-    doms = [d for d in PASS_DOMAINS_NUM if d in df.columns]
-    boys = df[df["Category"]=="Boys"][doms].iloc[0]
-    girls = df[df["Category"]=="Girls"][doms].iloc[0]
-    overall = df[df["Category"]=="Overall"][doms].iloc[0]
-    x = np.arange(len(doms))
-    fig, ax = plt.subplots(figsize=(10,4))
-    ax.bar(x-0.25, boys, width=0.25, label="Boys")
-    ax.bar(x, girls, width=0.25, label="Girls")
-    ax.bar(x+0.25, overall, width=0.25, label="Overall")
-    ax.set_xticks(x); ax.set_xticklabels(doms, rotation=45, ha="right")
-    ax.set_ylim(0,100); ax.set_title(title)
-    ax.legend()
-    st.pyplot(fig)
-
-def format_insights(df: pd.DataFrame) -> Tuple[List[str], List[str]]:
-    if df.empty: return [], []
-    top2 = df.sort_values("Score", ascending=False).head(2)
-    bot2 = df.sort_values("Score", ascending=True).head(2)
-    strengths = [f"- {r.Domain} ({r.Score:.1f})" for r in top2.itertuples()]
-    concerns = [f"- {r.Domain} ({r.Score:.1f})" for r in bot2.itertuples()]
-    return strengths, concerns
-
-def gender_insights(df: pd.DataFrame) -> List[str]:
-    insights = []
-    if df.empty: return insights
-    doms = [d for d in PASS_DOMAINS_NUM if d in df.columns]
-    for d in doms:
-        row = df.set_index("Category")[d]
-        if "Boys" in row and "Girls" in row:
-            gap = row["Boys"] - row["Girls"]
-            if abs(gap) >= 10:
-                who = "Boys" if gap < 0 else "Girls"
-                insights.append(f"- {who} weaker in {d} (gap {gap:+.1f})")
-    return insights
-
-def domain_strategies(df: pd.DataFrame):
-    flagged = df[df["Score"] < THRESHOLDS["amber"]]
-    for r in flagged.itertuples():
-        dom = r.Domain
-        st.markdown(f"**{dom} Strategies:**")
-        for s in DOMAIN_STRATEGIES.get(dom, []):
-            st.write(f"- {s}")
-
-def cluster_scores(df: pd.DataFrame) -> pd.DataFrame:
-    scores = {}
-    for cname, doms in CLUSTERS.items():
-        vals = df[df["Domain"].isin(doms)]["Score"]
-        if not vals.empty:
-            scores[cname] = vals.mean()
-    return pd.Series(scores).rename_axis("Cluster").reset_index(name="Score")
 # ----------------- Sidebar uploads -----------------
 st.sidebar.header("📁 Upload PASS workbooks (G6, G7, G8)")
 uploaded = {g: st.sidebar.file_uploader(f"{g} (.xlsx)", type=["xlsx"], key=f"u_{g}") for g in PASS_FILES}
@@ -339,8 +284,8 @@ with tab_gl:
 
         strengths, concerns = format_insights(df)
         st.markdown("### 🔎 Insights (Cohort)")
-        if strengths: st.success("**Strengths**\\n" + "\\n".join(strengths))
-        if concerns: st.warning("**Concerns**\\n" + "\\n".join(concerns))
+        if strengths: st.success("**Strengths**\n" + "\n".join(strengths))
+        if concerns: st.warning("**Concerns**\n" + "\n".join(concerns))
 
         st.markdown("### ✅ Actionable Strategies")
         domain_strategies(df)
@@ -351,8 +296,8 @@ with tab_gl:
         st.dataframe(cdf, use_container_width=True)
         make_bar(cdf.rename(columns={"Cluster": "Domain"}), f"{gsel}: Cluster Scores")
         top, bot = format_insights(cdf.rename(columns={"Cluster": "Domain"}))
-        if top: st.success("**Cluster Strengths**\\n" + "\\n".join(top))
-        if bot: st.warning("**Cluster Concerns**\\n" + "\\n".join(bot))
+        if top: st.success("**Cluster Strengths**\n" + "\n".join(top))
+        if bot: st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
     dfi = parsed_items.get(gsel, pd.DataFrame())
     if not dfi.empty:
@@ -362,7 +307,7 @@ with tab_gl:
         make_gender_bar(view, f"{gsel}: Gender Comparison")
         insights = gender_insights(view)
         if insights:
-            st.info("**Gender Gaps**\\n" + "\\n".join(insights))
+            st.info("**Gender Gaps**\n" + "\n".join(insights))
 
 with tab_hrt:
     gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
@@ -382,8 +327,8 @@ with tab_hrt:
 
         strengths, concerns = format_insights(class_means)
         st.markdown("### 🔎 Insights (Class)")
-        if strengths: st.success("**Strengths**\\n" + "\\n".join(strengths))
-        if concerns: st.warning("**Concerns**\\n" + "\\n".join(concerns))
+        if strengths: st.success("**Strengths**\n" + "\n".join(strengths))
+        if concerns: st.warning("**Concerns**\n" + "\n".join(concerns))
 
         st.markdown("### ✅ Actionable Strategies")
         domain_strategies(class_means)
@@ -403,8 +348,8 @@ with tab_hrt:
         st.dataframe(cdf, use_container_width=True)
         make_bar(cdf.rename(columns={"Cluster": "Domain"}), f"{gsel} {csel}: Cluster Scores")
         top, bot = format_insights(cdf.rename(columns={"Cluster": "Domain"}))
-        if top: st.success("**Cluster Strengths**\\n" + "\\n".join(top))
-        if bot: st.warning("**Cluster Concerns**\\n" + "\\n".join(bot))
+        if top: st.success("**Cluster Strengths**\n" + "\n".join(top))
+        if bot: st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
         # Class-level gender split if Gender column exists
         if "Gender" in class_df.columns:
@@ -421,7 +366,7 @@ with tab_hrt:
         make_gender_bar(view, f"{gsel}: Gender Comparison")
         insights = gender_insights(view)
         if insights:
-            st.info("**Gender Gaps**\\n" + "\\n".join(insights))
+            st.info("**Gender Gaps**\n" + "\n".join(insights))
 
 with tab_compare:
     st.subheader("Cross-Grade Comparison (Cohort)")
@@ -451,4 +396,3 @@ with tab_compare:
         st.dataframe(pivot.reindex(PASS_DOMAINS_NUM), use_container_width=True)
     else:
         st.info("No cohort data parsed to compare across grades.")
-
