@@ -1,9 +1,8 @@
 
 # ois_pass_app.py
-# Streamlit PASS Dashboard – GL + HRT with class-level insights and auto-flag
+# Streamlit PASS Dashboard – Enhanced with dropdowns, bullet insights, color-coded flagged students, numbered domains, and Cross-Grade Compare
 
 import io
-from datetime import datetime
 from typing import Dict, Tuple, Optional, List
 
 import streamlit as st
@@ -30,13 +29,13 @@ PASS_DOMAINS = [
     "Attitudes to attendance",
     "Response to curriculum demands",
 ]
+PASS_DOMAINS_NUM = [f"{i+1}. {d}" for i, d in enumerate(PASS_DOMAINS)]
+DOMAIN_MAP = dict(zip(PASS_DOMAINS, PASS_DOMAINS_NUM))
 THRESHOLDS = {"red": 60.0, "amber": 70.0}
 
 SHEET_HINTS = {
     "cohort": ["cohort analysis"],
     "profiles": ["individual profiles", "student profiles"],
-    "items": ["item level analysis", "item-level analysis"],
-    "cohort_pct": ["cohort - mean percentages", "mean percentages"],
 }
 
 # ----------------- Helpers -----------------
@@ -60,14 +59,6 @@ def choose_sheet(sheet_names: List[str], hints: List[str]) -> Optional[str]:
 # ----------------- Parsers -----------------
 def parse_cohort_sheet(src, sheet_name: Optional[str]) -> Tuple[pd.DataFrame, Optional[int]]:
     raw = pd.read_excel(src, sheet_name=sheet_name, header=None)
-    n = None
-    for r in range(min(15, len(raw))):
-        row = [_clean(x) for x in raw.iloc[r].values]
-        if any(x.lower() == "frequency" for x in row):
-            nums = [x for x in row if str(x).replace('.','',1).isdigit()]
-            if nums:
-                try: n = int(float(nums[-1]))
-                except: pass
     header_row = None
     for r in range(min(15, len(raw))):
         vals = [_clean(x) for x in raw.iloc[r].values]
@@ -82,8 +73,9 @@ def parse_cohort_sheet(src, sheet_name: Optional[str]) -> Tuple[pd.DataFrame, Op
                 try: data[h] = float(s)
                 except: pass
         df = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
-        return df, n
-    return pd.DataFrame(columns=["Domain","Score"]), n
+        df["Domain"] = df["Domain"].map(DOMAIN_MAP)
+        return df, None
+    return pd.DataFrame(columns=["Domain","Score"]), None
 
 def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
     raw = pd.read_excel(src, sheet_name=sheet_name, header=None)
@@ -105,71 +97,30 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
         elif c.startswith("group"): rename_map[col] = "Group"
         elif "year" in c: rename_map[col] = "Year"
     df = df.rename(columns=rename_map)
-    keep = [c for c in ["UPN","Forename","Surname","Group","Year"] if c in df.columns]
     for dom in PASS_DOMAINS:
-        if dom in df.columns: keep.append(dom)
-    return df[keep] if keep else pd.DataFrame()
+        if dom in df.columns: df = df.rename(columns={dom: DOMAIN_MAP[dom]})
+    return df
 
 def color_for_score(x: float) -> str:
-    if pd.isna(x): return "🟦"
-    if x < THRESHOLDS["red"]: return "🟥"
-    if x < THRESHOLDS["amber"]: return "🟧"
-    return "🟩"
+    if pd.isna(x): return ""
+    if x < THRESHOLDS["red"]: return "background-color: #f8d7da"  # red
+    if x < THRESHOLDS["amber"]: return "background-color: #fff3cd" # amber
+    return "background-color: #d4edda"                            # green
 
-def make_bar_compare(df_class: pd.DataFrame, df_grade: pd.DataFrame, title: str):
-    domains = PASS_DOMAINS
-    c = df_class.set_index("Domain")["Score"].reindex(domains)
-    g = df_grade.set_index("Domain")["Score"].reindex(domains)
-    x = np.arange(len(domains))
-    fig, ax = plt.subplots(figsize=(10,4))
-    ax.bar(x-0.2, c, width=0.4, label="Class")
-    ax.bar(x+0.2, g, width=0.4, label="Grade")
-    ax.set_xticks(x); ax.set_xticklabels(domains, rotation=45, ha="right")
-    ax.set_ylim(0,100)
-    ax.set_title(title)
-    ax.legend()
+def make_bar(df: pd.DataFrame, title: str):
+    fig, ax = plt.subplots(figsize=(8,4))
+    ax.bar(df["Domain"], df["Score"])
+    ax.set_title(title); ax.set_ylabel("Score"); ax.set_ylim(0,100)
+    ax.set_xticklabels(df["Domain"], rotation=45, ha="right")
     st.pyplot(fig)
 
-def make_insights(df: pd.DataFrame, label: str, n: Optional[int] = None):
-    if df.empty: return "No data."
+def format_insights(df: pd.DataFrame) -> Tuple[List[str], List[str]]:
+    if df.empty: return [], []
     top2 = df.sort_values("Score", ascending=False).head(2)
     bot2 = df.sort_values("Score", ascending=True).head(2)
-    parts = []
-    if n is not None: parts.append(f"{label}: {n} respondents.")
-    parts.append("**Strengths:** " + ", ".join(f"{r.Domain} ({r.Score:.1f})" for r in top2.itertuples()))
-    parts.append("**Concerns:** " + ", ".join(f"{r.Domain} ({r.Score:.1f})" for r in bot2.itertuples()))
-    flags = df[df["Score"] < THRESHOLDS["amber"]]
-    if not flags.empty:
-        parts.append("**Watchlist (≤70):** " + ", ".join(f"{r.Domain} ({r.Score:.1f})" for r in flags.sort_values("Score").itertuples()))
-    return "\n".join(parts)
-
-def actions_gl(df: pd.DataFrame) -> List[str]:
-    if df.empty: return ["No data available."]
-    idx = df.set_index("Domain")["Score"]
-    a = []
-    if "Attitudes to teachers" in idx and idx["Attitudes to teachers"] < THRESHOLDS["amber"]:
-        a.append("📌 Run grade-wide teacher–student relationship initiatives.")
-    if "Preparedness for learning" in idx and idx["Preparedness for learning"] < THRESHOLDS["amber"]:
-        a.append("📌 Organise study-skills workshops across the grade.")
-    if "Response to curriculum demands" in idx and idx["Response to curriculum demands"] < THRESHOLDS["amber"]:
-        a.append("📌 Meet HoDs to audit workload and assessment spread.")
-    if "Confidence in learning" in idx and idx["Confidence in learning"] < THRESHOLDS["amber"]:
-        a.append("📌 Focus on growth mindset assemblies.")
-    return a or ["Maintain strengths and monitor until next PASS."]
-
-def actions_hrt(df: pd.DataFrame) -> List[str]:
-    if df.empty: return ["No data available."]
-    idx = df.set_index("Domain")["Score"]
-    a = []
-    if "Feelings about school" in idx and idx["Feelings about school"] < THRESHOLDS["amber"]:
-        a.append("📌 Strengthen bonding and belonging activities in HR time.")
-    if "General work ethic" in idx and idx["General work ethic"] < THRESHOLDS["amber"]:
-        a.append("📌 Reinforce routines: planner checks, visible goal trackers.")
-    if "Attitudes to attendance" in idx and idx["Attitudes to attendance"] < THRESHOLDS["amber"]:
-        a.append("📌 Monitor attendance closely and involve parents early.")
-    if "Attitudes to teachers" in idx and idx["Attitudes to teachers"] < THRESHOLDS["amber"]:
-        a.append("📌 Build stronger individual relationships with students.")
-    return a or ["Sustain current practices; recognise positives."]
+    strengths = [f"- {r.Domain} ({r.Score:.1f})" for r in top2.itertuples()]
+    concerns = [f"- {r.Domain} ({r.Score:.1f})" for r in bot2.itertuples()]
+    return strengths, concerns
 
 # ----------------- Sidebar uploads -----------------
 st.sidebar.header("📁 Upload PASS workbooks (G6, G7, G8)")
@@ -196,66 +147,80 @@ for grade in PASS_FILES:
 
 # ----------------- UI -----------------
 st.title("🧭 OIS PASS Dashboard")
-st.caption("Cohort + Class + Student-level PASS analysis with insights and actionable points.")
 
-tab_gl, tab_hrt = st.tabs([
+tab_gl, tab_hrt, tab_compare = st.tabs([
     "🧑‍💼 GL View",
     "🧑‍🏫 HRT View",
+    "📊 Cross-Grade Compare",
 ])
 
 with tab_gl:
-    st.subheader("Grade Leaders – Cohort Analysis")
-    for grade in PASS_FILES:
-        df, n = parsed_cohort.get(grade, (pd.DataFrame(), None))
-        if not df.empty:
-            show = df.copy(); show["Status"] = show["Score"].apply(color_for_score)
-            st.dataframe(show, hide_index=True, use_container_width=True)
-            make_bar_compare(df, df, f"{grade}: PASS Domains")
-            st.markdown("### 🔎 Insights")
-            st.info(make_insights(df, grade, n))
-            st.markdown("### ✅ Actionable Points")
-            for a in actions_gl(df): st.write(a)
-        else:
-            st.warning(f"No cohort data for {grade}")
+    gsel = st.selectbox("Select Grade (GL View)", list(PASS_FILES.keys()))
+    df, n = parsed_cohort.get(gsel, (pd.DataFrame(), None))
+    if not df.empty:
+        show = df.copy(); show["Status"] = show["Score"].apply(lambda x: "🟥" if x<60 else "🟧" if x<70 else "🟩")
+        st.dataframe(show, hide_index=True, use_container_width=True)
+        make_bar(df, f"{gsel}: PASS Domains")
+        strengths, concerns = format_insights(df)
+        st.markdown("### 🔎 Insights")
+        if strengths: st.success("**Strengths**\n" + "\n".join(strengths))
+        if concerns: st.warning("**Concerns**\n" + "\n".join(concerns))
 
 with tab_hrt:
-    st.subheader("Homeroom Teachers – Class Analysis")
-    gsel = st.selectbox("Select grade", list(PASS_FILES.keys()))
+    gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
     dfp = parsed_profiles.get(gsel, pd.DataFrame())
     if dfp.empty:
         st.warning("No profiles data uploaded for this grade.")
     else:
         classes = sorted(dfp["Group"].dropna().unique())
         csel = st.selectbox("Select HR class", classes)
-        # class averages
         class_df = dfp[dfp["Group"] == csel]
-        class_means = class_df[PASS_DOMAINS].mean().reset_index()
+        class_means = class_df[PASS_DOMAINS_NUM].mean().reset_index()
         class_means.columns = ["Domain","Score"]
         grade_df, _ = parsed_cohort.get(gsel, (pd.DataFrame(), None))
         if not grade_df.empty:
             comp = class_means.merge(grade_df,on="Domain",suffixes=("_Class","_Grade"))
             st.dataframe(comp, use_container_width=True)
-            make_bar_compare(class_means, grade_df, f"{gsel} {csel}: Class vs Grade")
+            strengths, concerns = format_insights(class_means)
             st.markdown("### 🔎 Insights")
-            diffs = comp.assign(Diff=comp["Score_Class"]-comp["Score_Grade"])
-            weaker = diffs.nsmallest(2,"Diff")
-            stronger = diffs.nlargest(2,"Diff")
-            txt = []
-            txt.append(f"{csel} is weaker than {gsel} in: " + ", ".join(f"{r.Domain} ({r.Diff:.1f})" for r in weaker.itertuples()))
-            txt.append(f"{csel} is stronger than {gsel} in: " + ", ".join(f"{r.Domain} ({r.Diff:.1f})" for r in stronger.itertuples()))
-            st.info("\n".join(txt))
-            st.markdown("### ✅ Actionable Points")
-            for a in actions_hrt(class_means): st.write(a)
-            # flagged students
+            if strengths: st.success("**Strengths**\n" + "\n".join(strengths))
+            if concerns: st.warning("**Concerns**\n" + "\n".join(concerns))
             st.markdown("### 🚩 Flagged Students")
-            dom_cols = [d for d in PASS_DOMAINS if d in class_df.columns]
+            dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
             class_df["# Weak Domains"] = (class_df[dom_cols] < 60).sum(axis=1)
             flagged = class_df[class_df["# Weak Domains"] >= 2]
             if not flagged.empty:
-                st.dataframe(flagged[["Forename","Surname","Group","# Weak Domains"]+dom_cols], use_container_width=True)
+                styled = flagged[["Forename","Surname","Group","# Weak Domains"]+dom_cols].style.applymap(color_for_score, subset=dom_cols)
+                st.dataframe(styled, use_container_width=True)
                 out = io.BytesIO()
                 with pd.ExcelWriter(out, engine="xlsxwriter") as w:
                     flagged.to_excel(w,index=False)
                 st.download_button("⬇️ Download flagged students", out.getvalue(), file_name=f"{gsel}_{csel}_Flagged.xlsx")
             else:
                 st.success("No students flagged in this HR class.")
+
+with tab_compare:
+    st.subheader("Cross-Grade Comparison (Cohort)")
+    by_grade = {g:d for g,(d,_) in parsed_cohort.items() if isinstance(d, pd.DataFrame) and not d.empty}
+    if by_grade:
+        domains = PASS_DOMAINS_NUM
+        mats, grades = [], []
+        for g, df in by_grade.items():
+            ser = df.set_index("Domain")["Score"].reindex(domains)
+            mats.append(ser.values); grades.append(g)
+        M = np.column_stack(mats) if mats else np.zeros((len(domains), 0))
+        fig, ax = plt.subplots()
+        im = ax.imshow(M, aspect="auto", vmin=0, vmax=100)
+        ax.set_yticks(range(len(domains))); ax.set_yticklabels(domains)
+        ax.set_xticks(range(len(grades))); ax.set_xticklabels(grades)
+        ax.set_title("PASS Domain Heatmap (by Grade)")
+        fig.colorbar(im, ax=ax)
+        st.pyplot(fig)
+        rows = []
+        for g, df in by_grade.items():
+            tmp = df.copy(); tmp["Grade"] = g; rows.append(tmp)
+        pivot = pd.concat(rows, ignore_index=True)
+        pivot = pivot.pivot(index="Domain", columns="Grade", values="Score")
+        st.dataframe(pivot.reindex(PASS_DOMAINS_NUM), use_container_width=True)
+    else:
+        st.info("No cohort data parsed to compare.")
