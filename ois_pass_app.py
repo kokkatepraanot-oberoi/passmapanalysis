@@ -1,9 +1,9 @@
 
 # ois_pass_app.py
-# Streamlit PASS Dashboard – with Cohort, Class, Gender Split, Clusters, Flagged Students, Cross-Grade Compare, and Domain-Specific Strategies
+# Streamlit PASS Dashboard – Cohort, Class, Gender Split (with charts, insights, and strategies), Flagged Students, and Cross-Grade Compare
 
 import io
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Optional, List
 
 import streamlit as st
 import pandas as pd
@@ -32,12 +32,6 @@ PASS_DOMAINS = [
 PASS_DOMAINS_NUM = [f"{i+1}. {d}" for i, d in enumerate(PASS_DOMAINS)]
 DOMAIN_MAP = dict(zip(PASS_DOMAINS, PASS_DOMAINS_NUM))
 THRESHOLDS = {"red": 60.0, "amber": 70.0}
-
-CLUSTERS = {
-    "Self": ["2. Perceived learning capability", "3. Self-regard as a learner"],
-    "Study": ["4. Preparedness for learning","6. General work ethic","7. Confidence in learning"],
-    "School": ["1. Feelings about school","5. Attitudes to teachers","8. Attitudes to attendance","9. Response to curriculum demands"]
-}
 
 DOMAIN_STRATEGIES = {
     "1. Feelings about school": [
@@ -133,25 +127,10 @@ def parse_cohort_sheet(src, sheet_name: Optional[str]) -> pd.DataFrame:
     return pd.DataFrame(columns=["Domain","Score"])
 
 def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
-    raw = pd.read_excel(src, sheet_name=sheet_name, header=None)
-    header_row = None
-    for r in range(min(30, len(raw))):
-        vals = [_clean(x).lower() for x in raw.iloc[r].values]
-        if "upn" in vals and (any("forename" in v for v in vals) or any("first" in v for v in vals)):
-            header_row = r; break
-    if header_row is not None:
-        df = pd.read_excel(src, sheet_name=sheet_name, header=header_row)
-    else:
+    try:
         df = pd.read_excel(src, sheet_name=sheet_name)
-    rename_map = {}
-    for col in df.columns:
-        c = _norm(col)
-        if "forename" in c: rename_map[col] = "Forename"
-        elif "surname" in c: rename_map[col] = "Surname"
-        elif c == "upn": rename_map[col] = "UPN"
-        elif c.startswith("group"): rename_map[col] = "Group"
-        elif "year" in c: rename_map[col] = "Year"
-    df = df.rename(columns=rename_map)
+    except Exception:
+        return pd.DataFrame()
     for dom in PASS_DOMAINS:
         if dom in df.columns: df = df.rename(columns={dom: DOMAIN_MAP[dom]})
     return df
@@ -180,6 +159,21 @@ def make_bar(df: pd.DataFrame, title: str):
     ax.set_xticklabels(df["Domain"], rotation=45, ha="right")
     st.pyplot(fig)
 
+def make_gender_bar(df: pd.DataFrame, title: str):
+    doms = [d for d in PASS_DOMAINS_NUM if d in df.columns]
+    boys = df[df["Category"]=="Boys"][doms].iloc[0]
+    girls = df[df["Category"]=="Girls"][doms].iloc[0]
+    overall = df[df["Category"]=="Overall"][doms].iloc[0]
+    x = np.arange(len(doms))
+    fig, ax = plt.subplots(figsize=(10,4))
+    ax.bar(x-0.25, boys, width=0.25, label="Boys")
+    ax.bar(x, girls, width=0.25, label="Girls")
+    ax.bar(x+0.25, overall, width=0.25, label="Overall")
+    ax.set_xticks(x); ax.set_xticklabels(doms, rotation=45, ha="right")
+    ax.set_ylim(0,100); ax.set_title(title)
+    ax.legend()
+    st.pyplot(fig)
+
 def format_insights(df: pd.DataFrame) -> Tuple[List[str], List[str]]:
     if df.empty: return [], []
     top2 = df.sort_values("Score", ascending=False).head(2)
@@ -193,7 +187,7 @@ def gender_insights(df: pd.DataFrame) -> List[str]:
     if df.empty: return insights
     doms = [d for d in PASS_DOMAINS_NUM if d in df.columns]
     for d in doms:
-        row = df[["Category", d]].set_index("Category")[d]
+        row = df.set_index("Category")[d]
         if "Boys" in row and "Girls" in row:
             gap = row["Boys"] - row["Girls"]
             if abs(gap) >= 10:
@@ -258,12 +252,12 @@ with tab_gl:
         if concerns: st.warning("**Concerns**\n" + "\n".join(concerns))
         st.markdown("### ✅ Actionable Strategies")
         domain_strategies(df)
-    # Gender split
     dfi = parsed_items.get(gsel, pd.DataFrame())
     if not dfi.empty:
         st.subheader("Gender Split Analysis")
         view = dfi[dfi["Category"].isin(["Overall","Boys","Girls"])]
         st.dataframe(view, use_container_width=True)
+        make_gender_bar(view, f"{gsel}: Gender Comparison")
         insights = gender_insights(view)
         if insights:
             st.info("**Gender Gaps**\n" + "\n".join(insights))
@@ -296,15 +290,15 @@ with tab_hrt:
             st.dataframe(styled, use_container_width=True)
         else:
             st.success("No flagged students in this HR class.")
-        # Gender split for grade
-        dfi = parsed_items.get(gsel, pd.DataFrame())
-        if not dfi.empty:
-            st.subheader("Gender Split Analysis (Grade-level)")
-            view = dfi[dfi["Category"].isin(["Overall","Boys","Girls"])]
-            st.dataframe(view, use_container_width=True)
-            insights = gender_insights(view)
-            if insights:
-                st.info("**Gender Gaps**\n" + "\n".join(insights))
+    dfi = parsed_items.get(gsel, pd.DataFrame())
+    if not dfi.empty:
+        st.subheader("Gender Split Analysis (Grade-level)")
+        view = dfi[dfi["Category"].isin(["Overall","Boys","Girls"])]
+        st.dataframe(view, use_container_width=True)
+        make_gender_bar(view, f"{gsel}: Gender Comparison")
+        insights = gender_insights(view)
+        if insights:
+            st.info("**Gender Gaps**\n" + "\n".join(insights))
 
 with tab_compare:
     st.subheader("Cross-Grade Comparison (Cohort)")
