@@ -1,6 +1,6 @@
 
 # ois_pass_app.py
-# Streamlit PASS Dashboard – with Cohort, Class, Gender Split, Domain Clusters, Flagged Students, and Conversation Prompts
+# Streamlit PASS Dashboard – with Cohort, Class, Gender Split, Clusters, Flagged Students, Cross-Grade Compare, and Domain-Specific Strategies
 
 import io
 from typing import Dict, Tuple, Optional, List
@@ -37,6 +37,54 @@ CLUSTERS = {
     "Self": ["2. Perceived learning capability", "3. Self-regard as a learner"],
     "Study": ["4. Preparedness for learning","6. General work ethic","7. Confidence in learning"],
     "School": ["1. Feelings about school","5. Attitudes to teachers","8. Attitudes to attendance","9. Response to curriculum demands"]
+}
+
+DOMAIN_STRATEGIES = {
+    "1. Feelings about school": [
+        "Rebuild belonging (circles, advisory games, peer shout-outs)",
+        "Use assemblies for positive school identity",
+        "Student voice forums"
+    ],
+    "2. Perceived learning capability": [
+        "Growth mindset interventions",
+        "Teacher feedback focused on effort/progress",
+        "Small wins / scaffolding for success"
+    ],
+    "3. Self-regard as a learner": [
+        "Celebrate academic progress (not just high achievers)",
+        "Peer tutoring opportunities",
+        "Strengths-based feedback from teachers"
+    ],
+    "4. Preparedness for learning": [
+        "Planner routines, visible goal trackers",
+        "‘Do Now’ tasks in class for structure",
+        "Time management mini-lessons"
+    ],
+    "5. Attitudes to teachers": [
+        "Positive calls/emails home",
+        "Advisory ‘Meet the Teacher’ sessions",
+        "Restorative practices, reconnection strategies"
+    ],
+    "6. General work ethic": [
+        "Weekly routines: planner checks, visible targets",
+        "Advisory SEL sessions on perseverance & resilience",
+        "Recognition for consistent effort"
+    ],
+    "7. Confidence in learning": [
+        "Growth mindset assemblies",
+        "Celebrating risk-taking in learning",
+        "Peer support & ‘safe fail’ opportunities"
+    ],
+    "8. Attitudes to attendance": [
+        "Monitor attendance/tardies closely",
+        "Early family contact",
+        "HR/class competitions for attendance"
+    ],
+    "9. Response to curriculum demands": [
+        "Audit workload with HoDs",
+        "Space out assessments",
+        "Scaffolding & differentiation for complex tasks"
+    ]
 }
 
 SHEET_HINTS = {
@@ -153,6 +201,14 @@ def gender_insights(df: pd.DataFrame) -> List[str]:
                 insights.append(f"- {who} weaker in {d} (gap {gap:+.1f})")
     return insights
 
+def domain_strategies(df: pd.DataFrame):
+    flagged = df[df["Score"] < THRESHOLDS["amber"]]
+    for r in flagged.itertuples():
+        dom = r.Domain
+        st.markdown(f"**{dom} Strategies:**")
+        for s in DOMAIN_STRATEGIES.get(dom, []):
+            st.write(f"- {s}")
+
 # ----------------- Sidebar uploads -----------------
 st.sidebar.header("📁 Upload PASS workbooks (G6, G7, G8)")
 uploaded = {g: st.sidebar.file_uploader(f"{g} (.xlsx)", type=["xlsx"], key=f"u_{g}") for g in PASS_FILES}
@@ -192,6 +248,7 @@ with tab_gl:
     gsel = st.selectbox("Select Grade (GL View)", list(PASS_FILES.keys()))
     df = parsed_cohort.get(gsel, pd.DataFrame())
     if not df.empty:
+        st.subheader("Cohort Analysis")
         show = df.copy(); show["Status"] = show["Score"].apply(lambda x: "🟥" if x<60 else "🟧" if x<70 else "🟩")
         st.dataframe(show, hide_index=True, use_container_width=True)
         make_bar(df, f"{gsel}: PASS Domains")
@@ -199,16 +256,17 @@ with tab_gl:
         st.markdown("### 🔎 Insights (Cohort)")
         if strengths: st.success("**Strengths**\n" + "\n".join(strengths))
         if concerns: st.warning("**Concerns**\n" + "\n".join(concerns))
+        st.markdown("### ✅ Actionable Strategies")
+        domain_strategies(df)
     # Gender split
     dfi = parsed_items.get(gsel, pd.DataFrame())
     if not dfi.empty:
-        st.markdown("### 👥 Gender Split Analysis")
+        st.subheader("Gender Split Analysis")
         view = dfi[dfi["Category"].isin(["Overall","Boys","Girls"])]
         st.dataframe(view, use_container_width=True)
         insights = gender_insights(view)
         if insights:
             st.info("**Gender Gaps**\n" + "\n".join(insights))
-        # TODO: Add actionable strategies from slides here (shortened for brevity)
 
 with tab_hrt:
     gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
@@ -222,11 +280,14 @@ with tab_hrt:
         dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
         class_means = class_df[dom_cols].mean().reset_index()
         class_means.columns = ["Domain","Score"]
+        st.subheader(f"{gsel} {csel}: Class Analysis")
         st.dataframe(class_means, use_container_width=True)
         strengths, concerns = format_insights(class_means)
         st.markdown("### 🔎 Insights (Class)")
         if strengths: st.success("**Strengths**\n" + "\n".join(strengths))
         if concerns: st.warning("**Concerns**\n" + "\n".join(concerns))
+        st.markdown("### ✅ Actionable Strategies")
+        domain_strategies(class_means)
         st.markdown("### 🚩 Flagged Students")
         class_df["# Weak Domains"] = (class_df[dom_cols] < 60).sum(axis=1)
         flagged = class_df[class_df["# Weak Domains"] >= 2]
@@ -238,7 +299,7 @@ with tab_hrt:
         # Gender split for grade
         dfi = parsed_items.get(gsel, pd.DataFrame())
         if not dfi.empty:
-            st.markdown("### 👥 Gender Split Analysis (Grade-level)")
+            st.subheader("Gender Split Analysis (Grade-level)")
             view = dfi[dfi["Category"].isin(["Overall","Boys","Girls"])]
             st.dataframe(view, use_container_width=True)
             insights = gender_insights(view)
