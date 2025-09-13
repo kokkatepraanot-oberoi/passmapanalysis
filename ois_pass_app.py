@@ -1,10 +1,9 @@
 
 # ois_pass_app.py
-# Streamlit PASS Dashboard – Cohort, Class, Gender Split (with charts, insights, and strategies), Flagged Students, and Cross-Grade Compare
+# Streamlit PASS Dashboard – Robust Group Parsing + Cohort, Class, Gender Split, Flagged Students, Strategies, Cross-Grade Compare
 
 import io
 from typing import Dict, Optional, List, Tuple
-
 
 import streamlit as st
 import pandas as pd
@@ -134,6 +133,17 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
         return pd.DataFrame()
     for dom in PASS_DOMAINS:
         if dom in df.columns: df = df.rename(columns={dom: DOMAIN_MAP[dom]})
+    # Standardize Group column
+    GROUP_ALIASES = ["Group","Class","Form","HR"]
+    found = None
+    for alias in GROUP_ALIASES:
+        if alias in df.columns:
+            found = alias
+            break
+    if found:
+        df = df.rename(columns={found:"Group"})
+    else:
+        df["Group"] = "All"
     return df
 
 def parse_item_level(src, sheet_name: Optional[str]) -> pd.DataFrame:
