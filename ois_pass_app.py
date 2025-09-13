@@ -1,6 +1,6 @@
 
 # ois_pass_app.py
-# Streamlit PASS Dashboard – Robust Group Parsing + Cohort, Class, Gender Split, Flagged Students, Strategies, Cross-Grade Compare
+# Streamlit PASS Dashboard – HR classes preserved + Gender Split (GL + HRT with class-level if available)
 
 import io
 from typing import Dict, Optional, List, Tuple
@@ -143,6 +143,7 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
     if found:
         df = df.rename(columns={found:"Group"})
     else:
+        # only fallback if absolutely no group column
         df["Group"] = "All"
     return df
 
@@ -279,7 +280,7 @@ with tab_hrt:
     if dfp.empty:
         st.warning("No profiles data uploaded for this grade.")
     else:
-        classes = sorted(dfp["Group"].dropna().unique())
+        classes = sorted(set(dfp["Group"].dropna().unique()))
         csel = st.selectbox("Select HR class", classes)
         class_df = dfp[dfp["Group"] == csel]
         dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
@@ -301,6 +302,12 @@ with tab_hrt:
             st.dataframe(styled, use_container_width=True)
         else:
             st.success("No flagged students in this HR class.")
+        # Class-level gender split if Gender column exists
+        if "Gender" in class_df.columns:
+            st.subheader("Gender Split Analysis (Class-level)")
+            view = class_df.groupby("Gender")[dom_cols].mean().reset_index()
+            st.dataframe(view, use_container_width=True)
+    # Always show grade-level gender split
     dfi = parsed_items.get(gsel, pd.DataFrame())
     if not dfi.empty:
         st.subheader("Gender Split Analysis (Grade-level)")
