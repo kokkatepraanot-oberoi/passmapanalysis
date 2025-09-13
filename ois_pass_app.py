@@ -142,13 +142,19 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
         return pd.DataFrame()
     for dom in PASS_DOMAINS:
         if dom in df.columns: df = df.rename(columns={dom: DOMAIN_MAP[dom]})
-    # Standardize Group column
+    # Try to detect Group column
     GROUP_ALIASES = ["Group","Class","Form","HR"]
     found = None
     for alias in GROUP_ALIASES:
         if alias in df.columns:
             found = alias
             break
+    if not found:
+        # Scan first 5 rows for likely group column
+        for col in df.columns:
+            if any(key in str(col).lower() for key in ["group","class","form","hr"]):
+                found = col
+                break
     if found:
         df = df.rename(columns={found:"Group"})
     else:
@@ -160,12 +166,18 @@ def parse_item_level(src, sheet_name: Optional[str]) -> pd.DataFrame:
         raw = pd.read_excel(src, sheet_name=sheet_name)
     except Exception:
         return pd.DataFrame()
+    # Normalize headers
+    raw.columns = [str(c).strip() for c in raw.columns]
+    if "Category" not in raw.columns:
+        alt = [c for c in raw.columns if "category" in c.lower()]
+        if alt: raw = raw.rename(columns={alt[0]: "Category"})
     if "Category" not in raw.columns:
         return pd.DataFrame()
     for dom in PASS_DOMAINS:
         if dom in raw.columns: raw = raw.rename(columns={dom: DOMAIN_MAP[dom]})
     return raw
 
+# ----------------- Visualization + Analysis Helpers -----------------
 def color_for_score(x: float) -> str:
     if pd.isna(x): return ""
     if x < THRESHOLDS["red"]: return "background-color: #f8d7da"
