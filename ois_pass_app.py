@@ -148,42 +148,69 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
         df = pd.read_excel(src, sheet_name=sheet_name)
     except Exception:
         return pd.DataFrame()
+
     # Normalize headers
-    df.columns = [str(c).strip().lower() for c in df.columns]
-    # Rename domains
-    for dom in PASS_DOMAINS:
-        if dom.lower() in df.columns:
-            df = df.rename(columns={dom.lower(): DOMAIN_MAP[dom]})
-    # Detect Group column
+    clean_cols = {c: str(c).strip().lower() for c in df.columns}
+    df.rename(columns=clean_cols, inplace=True)
+
+    # Detect Group column (any header containing 'group' / 'class' / 'form' / 'hr')
     group_col = None
-    for key in ["group", "class", "form", "hr"]:
-        if key in df.columns:
-            group_col = key
+    for col in df.columns:
+        if any(key in col for key in ["group", "class", "form", "hr"]):
+            group_col = col
             break
     if group_col:
-        df = df.rename(columns={group_col: "Group"})
+        df.rename(columns={group_col: "Group"}, inplace=True)
     else:
         df["Group"] = "All"
-    # Capitalize Gender if exists
-    if "gender" in df.columns:
-        df = df.rename(columns={"gender": "Gender"})
+
+    # Detect Gender column
+    gender_col = None
+    for col in df.columns:
+        if "gender" in col:
+            gender_col = col
+            break
+    if gender_col:
+        df.rename(columns={gender_col: "Gender"}, inplace=True)
+
+    # Rename domains
+    for dom in PASS_DOMAINS:
+        for col in df.columns:
+            if dom.lower() in col:
+                df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
+
     return df
+
 
 def parse_item_level(src, sheet_name: Optional[str]) -> pd.DataFrame:
     try:
         raw = pd.read_excel(src, sheet_name=sheet_name)
     except Exception:
         return pd.DataFrame()
+
     # Normalize headers
-    raw.columns = [str(c).strip().lower() for c in raw.columns]
-    if "category" not in raw.columns:
+    clean_cols = {c: str(c).strip().lower() for c in raw.columns}
+    raw.rename(columns=clean_cols, inplace=True)
+
+    # Detect Category column
+    cat_col = None
+    for col in raw.columns:
+        if "category" in col:
+            cat_col = col
+            break
+    if cat_col:
+        raw.rename(columns={cat_col: "Category"}, inplace=True)
+    else:
         return pd.DataFrame()
-    raw = raw.rename(columns={"category": "Category"})
+
     # Rename domains
     for dom in PASS_DOMAINS:
-        if dom.lower() in raw.columns:
-            raw = raw.rename(columns={dom.lower(): DOMAIN_MAP[dom]})
+        for col in raw.columns:
+            if dom.lower() in col:
+                raw.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
+
     return raw
+
 
 # ----------------- Visualization + Analysis -----------------
 def color_for_score(x: float) -> str:
