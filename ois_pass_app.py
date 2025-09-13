@@ -145,15 +145,27 @@ def parse_cohort_sheet(src, sheet_name: Optional[str]) -> pd.DataFrame:
 
 def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
     try:
-        df = pd.read_excel(src, sheet_name=sheet_name)
+        raw = pd.read_excel(src, sheet_name=sheet_name, header=None)
     except Exception:
         return pd.DataFrame()
 
-    # Normalize headers
-    clean_cols = {c: str(c).strip().lower() for c in df.columns}
-    df.rename(columns=clean_cols, inplace=True)
+    # Find header row (look for "Forename" or "Group")
+    header_row = None
+    for r in range(min(20, len(raw))):
+        row_vals = [str(x).strip().lower() for x in raw.iloc[r].values]
+        if any("forename" in v or "group" in v for v in row_vals):
+            header_row = r
+            break
 
-    # Detect Group column (any header containing 'group' / 'class' / 'form' / 'hr')
+    if header_row is None:
+        return pd.DataFrame()
+
+    df = pd.read_excel(src, sheet_name=sheet_name, header=header_row)
+
+    # Normalize headers
+    df.columns = [str(c).strip().lower() for c in df.columns]
+
+    # Detect Group column
     group_col = None
     for col in df.columns:
         if any(key in col for key in ["group", "class", "form", "hr"]):
@@ -165,13 +177,9 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
         df["Group"] = "All"
 
     # Detect Gender column
-    gender_col = None
     for col in df.columns:
         if "gender" in col:
-            gender_col = col
-            break
-    if gender_col:
-        df.rename(columns={gender_col: "Gender"}, inplace=True)
+            df.rename(columns={col: "Gender"}, inplace=True)
 
     # Rename domains
     for dom in PASS_DOMAINS:
@@ -180,6 +188,7 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
                 df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
 
     return df
+
 
 
 def parse_item_level(src, sheet_name: Optional[str]) -> pd.DataFrame:
