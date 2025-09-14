@@ -189,11 +189,16 @@ def clean_profiles(df: pd.DataFrame) -> pd.DataFrame:
         if "gender" in col.lower():
             df.rename(columns={col: "Gender"}, inplace=True)
 
-    # Map domains to consistent names
+    # Map domains to consistent names + force numeric
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
                 df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
+
+    # Convert domain cols to numeric
+    for dom in PASS_DOMAINS_NUM:
+        if dom in df.columns:
+            df[dom] = pd.to_numeric(df[dom], errors="coerce")
 
     return df
 
@@ -212,7 +217,7 @@ def clean_cohort(df: pd.DataFrame) -> pd.DataFrame:
         for col in df.columns:
             if dom.lower() in col.lower():
                 try:
-                    val = float(df[col].iloc[0])
+                    val = pd.to_numeric(df[col].iloc[0], errors="coerce")
                     data[DOMAIN_MAP[dom]] = val
                 except Exception:
                     pass
@@ -236,13 +241,18 @@ def clean_items(df: pd.DataFrame) -> pd.DataFrame:
             if "category" in col.lower():
                 df.rename(columns={col: "Category"}, inplace=True)
 
-    # Map domains if present
+    # Map domains if present + force numeric
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
                 df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
 
+    for dom in PASS_DOMAINS_NUM:
+        if dom in df.columns:
+            df[dom] = pd.to_numeric(df[dom], errors="coerce")
+
     return df
+
 
 def load_all_pass_files(pass_files):
     parsed_profiles = {}
