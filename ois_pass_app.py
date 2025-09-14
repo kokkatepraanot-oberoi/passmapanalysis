@@ -30,6 +30,18 @@ PASS_DOMAINS = [
     "Response to curriculum demands",
 ]
 
+DOMAIN_COLORS = {
+    "1. Feelings about school": "#4CAF50",      # green
+    "2. Perceived learning capability": "#2196F3",  # blue
+    "3. Self-regard as a learner": "#9C27B0",   # purple
+    "4. Preparedness for learning": "#FF9800",  # orange
+    "5. Attitudes to teachers": "#F44336",      # red
+    "6. General work ethic": "#795548",         # brown
+    "7. Confidence in learning": "#00BCD4",     # cyan
+    "8. Attitudes to attendance": "#8BC34A",    # light green
+    "9. Response to curriculum demands": "#FFC107", # amber
+}
+
 PASS_DOMAINS_NUM = [f"{i+1}. {d}" for i, d in enumerate(PASS_DOMAINS)]
 DOMAIN_MAP = dict(zip(PASS_DOMAINS, PASS_DOMAINS_NUM))
 
@@ -326,6 +338,21 @@ with tab_gl:
         st.dataframe(show, hide_index=True, use_container_width=True)
         make_bar(df, f"{gsel}: PASS Domains")
 
+        # Donut chart for GL view
+        colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in means["Domain"]]
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.pie(
+            means["Score"],
+            labels=means["Domain"],
+            autopct="%.1f%%",
+            startangle=90,
+            counterclock=False,
+            colors=colors,
+            wedgeprops=dict(width=0.4)
+        )
+        ax.set_title(f"{gsel}: Domain Distribution (Cohort)")
+        st.pyplot(fig)
+
         strengths, concerns = format_insights(df)
         st.markdown("### 🔎 Insights (Cohort)")
         if strengths:
@@ -383,6 +410,21 @@ with tab_hrt:
 
         st.subheader(f"{gsel} {csel}: Class Analysis")
         st.dataframe(class_means, use_container_width=True)
+
+        # Donut chart for HRT view
+        colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in class_means["Domain"]]
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.pie(
+            class_means["Score"],
+            labels=class_means["Domain"],
+            autopct="%.1f%%",
+            startangle=90,
+            counterclock=False,
+            colors=colors,
+            wedgeprops=dict(width=0.4)
+        )
+        ax.set_title(f"{gsel} {csel}: Domain Distribution (Class)")
+        st.pyplot(fig)
 
         strengths, concerns = format_insights(class_means)
         st.markdown("### 🔎 Insights (Class)")
