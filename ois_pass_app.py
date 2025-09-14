@@ -19,7 +19,6 @@ PASS_FILES = {
     "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
 }
 
-parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
 
 PASS_DOMAINS = [
     "Feelings about school",
@@ -262,7 +261,7 @@ def load_all_pass_files(pass_files):
 
     return parsed_profiles, parsed_cohort, parsed_items
 
-
+parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
 
 # ----------------- Visualization + Analysis -----------------
 def color_for_score(x: float) -> str:
