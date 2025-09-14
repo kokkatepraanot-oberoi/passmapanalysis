@@ -355,7 +355,6 @@ def cluster_scores(df: pd.DataFrame) -> pd.DataFrame:
     return pd.Series(scores).rename_axis("Cluster").reset_index(name="Score")
 
 # ---------------- Sidebar UI ----------------
-st.sidebar.title("📊 OIS PASS Dashboard")
 
 # Built-in file paths
 PASS_FILES = {
@@ -366,18 +365,6 @@ PASS_FILES = {
 
 # Info box showing status
 st.sidebar.info("📊 Using built-in PASS data (Grades 6–8, Sept 2025).")
-
-# Optional uploads to replace built-in files
-st.sidebar.markdown("### 📂 Upload PASS workbooks (optional)")
-uploaded_files = {}
-for grade in PASS_FILES.keys():
-    uploaded = st.sidebar.file_uploader(
-        f"{grade} workbook (.xlsx)",
-        type=["xlsx"],
-        key=f"upload_{grade.replace(' ', '_')}",
-    )
-    if uploaded is not None:
-        uploaded_files[grade] = uploaded
 
 
 # ----------------- UI -----------------
