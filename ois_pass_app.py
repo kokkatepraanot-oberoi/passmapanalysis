@@ -12,10 +12,11 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="OIS PASS Dashboard", layout="wide")
 
 # --------- CONFIG ---------
+
 PASS_FILES = {
-    "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
-    "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
-    "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
+    "Grade 6": "Grade_6_PASS_2025.csv",
+    "Grade 7": "Grade_7_PASS_2025.csv",
+    "Grade 8": "Grade_8_PASS_2025.csv",
 }
 
 PASS_DOMAINS = [
@@ -167,15 +168,46 @@ def descriptor_color(val):
     return mapping.get(val, "")
     
 # ----------------- Parsers -----------------
-def parse_cohort_sheet(src, sheet_name: Optional[str]) -> pd.DataFrame:
-    """Parse Cohort Analysis sheet (Grade-level domain scores)."""
-    try:
-        df = pd.read_excel(src, sheet_name=sheet_name, header=4)
-    except Exception:
-        return pd.DataFrame()
+def clean_profiles(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean and normalize Individual Profiles sheet (student-level data)."""
+    if df.empty:
+        return df
 
+    df = df.copy()
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # Ensure Group column
+    if "Group" not in df.columns:
+        for col in df.columns:
+            if "group" in col.lower():
+                df.rename(columns={col: "Group"}, inplace=True)
+    if "Group" not in df.columns:
+        df["Group"] = "All"
+
+    # Ensure Gender column
+    for col in df.columns:
+        if "gender" in col.lower():
+            df.rename(columns={col: "Gender"}, inplace=True)
+
+    # Map domains to consistent names
+    for dom in PASS_DOMAINS:
+        for col in df.columns:
+            if dom.lower() in col.lower():
+                df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
+
+    return df
+
+
+def clean_cohort(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean Cohort Analysis (grade-level domain scores)."""
+    if df.empty:
+        return df
+
+    df = df.copy()
     df.columns = [str(c).strip() for c in df.columns]
     data = {}
+
+    # Extract domain scores
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
@@ -184,34 +216,27 @@ def parse_cohort_sheet(src, sheet_name: Optional[str]) -> pd.DataFrame:
                     data[DOMAIN_MAP[dom]] = val
                 except Exception:
                     pass
+
     out = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
     out["Score"] = out["Score"].round(1)
     return out
 
-def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
-    """Parse Individual Profiles (student-level data)."""
-    try:
-        df = pd.read_excel(src, sheet_name=sheet_name, header=4)
-    except Exception:
-        return pd.DataFrame()
 
+def clean_items(df: pd.DataFrame) -> pd.DataFrame:
+    """Clean Item Level Analysis (gender splits)."""
+    if df.empty:
+        return df
+
+    df = df.copy()
     df.columns = [str(c).strip() for c in df.columns]
 
-    # Ensure Group column
-    if "Group" not in df.columns:
+    # Ensure Category column
+    if "Category" not in df.columns:
         for col in df.columns:
-            if "group" in col.lower():
-                df.rename(columns={col: "Group"}, inplace=True)
+            if "category" in col.lower():
+                df.rename(columns={col: "Category"}, inplace=True)
 
-    if "Group" not in df.columns:
-        df["Group"] = "All"
-
-    # Gender
-    for col in df.columns:
-        if "gender" in col.lower():
-            df.rename(columns={col: "Gender"}, inplace=True)
-
-    # Map domains
+    # Map domains if present
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
@@ -219,21 +244,33 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
 
     return df
 
-def parse_item_level(src, sheet_name: Optional[str]) -> pd.DataFrame:
-    """Parse Item Level Analysis (gender splits)."""
-    try:
-        df = pd.read_excel(src, sheet_name=sheet_name, header=4)
-    except Exception:
-        return pd.DataFrame()
 
-    df.columns = [str(c).strip() for c in df.columns]
+def load_all_pass_files(pass_files):
+    parsed_profiles = {}
+    parsed_cohort = {}
+    parsed_items = {}
 
-    if "Category" not in df.columns:
-        for col in df.columns:
-            if "category" in col.lower():
-                df.rename(columns={col: "Category"}, inplace=True)
+    for grade, filepath in pass_files.items():
+        df = pd.read_csv(filepath)
 
-    return df
+        # Profiles
+        profiles = df[df["Sheet"].str.contains("Profile", case=False)].copy()
+        parsed_profiles[grade] = clean_profiles(profiles)
+
+        # Cohort
+        cohort = df[df["Sheet"].str.contains("Cohort", case=False)].copy()
+        parsed_cohort[grade] = clean_cohort(cohort)
+
+        # Items
+        items = df[df["Sheet"].str.contains("Item", case=False)].copy()
+        parsed_items[grade] = clean_items(items)
+
+    return parsed_profiles, parsed_cohort, parsed_items
+
+
+# Load everything at startup
+parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
+
 
 # ----------------- Visualization + Analysis -----------------
 def color_for_score(x: float) -> str:
