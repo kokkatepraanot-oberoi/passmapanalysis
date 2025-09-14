@@ -244,29 +244,42 @@ def clean_items(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-
 def load_all_pass_files(pass_files):
     parsed_profiles = {}
     parsed_cohort = {}
     parsed_items = {}
 
     for grade, filepath in pass_files.items():
-        df = pd.read_csv(filepath)
+        try:
+            df = pd.read_csv(filepath)
 
-        # Profiles
-        profiles = df[df["Sheet"].str.contains("Profile", case=False)].copy()
-        parsed_profiles[grade] = clean_profiles(profiles)
+            # Profiles
+            profiles = df[df["Sheet"].str.contains("Profile", case=False)].copy()
+            parsed_profiles[grade] = clean_profiles(profiles)
 
-        # Cohort
-        cohort = df[df["Sheet"].str.contains("Cohort", case=False)].copy()
-        parsed_cohort[grade] = clean_cohort(cohort)
+            # Cohort
+            cohort = df[df["Sheet"].str.contains("Cohort", case=False)].copy()
+            parsed_cohort[grade] = clean_cohort(cohort)
 
-        # Items
-        items = df[df["Sheet"].str.contains("Item", case=False)].copy()
-        parsed_items[grade] = clean_items(items)
+            # Items
+            items = df[df["Sheet"].str.contains("Item", case=False)].copy()
+            parsed_items[grade] = clean_items(items)
+
+            # ✅ Validation messages
+            st.sidebar.success(
+                f"{grade}: "
+                f"{len(parsed_profiles[grade]) if not parsed_profiles[grade].empty else 0} profiles | "
+                f"{len(parsed_cohort[grade]) if not parsed_cohort[grade].empty else 0} cohort rows | "
+                f"{len(parsed_items[grade]) if not parsed_items[grade].empty else 0} item rows"
+            )
+
+        except Exception as e:
+            st.sidebar.error(f"❌ Failed to load {grade}: {e}")
+            parsed_profiles[grade] = pd.DataFrame()
+            parsed_cohort[grade] = pd.DataFrame()
+            parsed_items[grade] = pd.DataFrame()
 
     return parsed_profiles, parsed_cohort, parsed_items
-
 
 # Load everything at startup
 parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
