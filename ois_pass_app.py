@@ -448,9 +448,15 @@ with tab_gl:
             st.dataframe(styled, use_container_width=True)
 
         # 🚩 Flagged Students (Low & below ≤40)
-            st.markdown("### 🚩 Flagged Students (Low & below ≤40)")
+        st.markdown("### 🚩 Flagged Students (Low & below ≤40)")
         
-            # ✅ Only students with ANY domain <= 40
+        if not dfp.empty:
+            # Convert only domain columns to numeric (copy to avoid mutating dfp directly)
+            dfp_num = dfp.copy()
+            for col in dom_cols:
+                dfp_num[col] = pd.to_numeric(dfp_num[col], errors="coerce")
+        
+            # ✅ Only students with ANY domain ≤ 40
             flagged = dfp_num[dfp_num[dom_cols].le(40).any(axis=1)]
         
             if not flagged.empty:
@@ -470,15 +476,22 @@ with tab_gl:
                         + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
                     )
         
-                styled_flagged = flagged_formatted.style.applymap(colorize, subset=dom_cols)
+                # Apply descriptor-based color coding
+                def colorize(val):
+                    if "(" in str(val):
+                        desc = val.split("(")[-1].strip(")")
+                        return descriptor_color(desc)
+                    return ""
         
-                st.dataframe(
-                    styled_flagged,
-                    use_container_width=True,
-                    hide_index=True
-                )
+                styled_flagged = flagged_formatted[
+                    ["Forename", "Surname", "Group"] + dom_cols
+                ].style.applymap(colorize, subset=dom_cols)
+        
+                st.dataframe(styled_flagged, use_container_width=True, hide_index=True)
+        
             else:
                 st.success("✅ No flagged students (Low or below) in this grade.")
+
 
 with tab_hrt:
     gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()), key="hrt_grade")
