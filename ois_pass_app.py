@@ -266,7 +266,6 @@ def load_all_pass_files(pass_files):
 parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
 
 
-
 # ----------------- Visualization + Analysis -----------------
 def color_for_score(x: float) -> str:
     if pd.isna(x):
