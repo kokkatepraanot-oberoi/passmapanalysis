@@ -352,17 +352,59 @@ def cluster_scores(df: pd.DataFrame) -> pd.DataFrame:
             scores[cname] = vals.mean().round(1)
     return pd.Series(scores).rename_axis("Cluster").reset_index(name="Score")
 
-# ---------------- Sidebar UI ----------------
+# ---------------- Sidebar Context ----------------
+with st.sidebar:
+    st.image("https://img.icons8.com/ios-filled/50/000000/compass.png", width=40)
+    st.title("OIS PASS Dashboard")
 
-# Built-in file paths
-PASS_FILES = {
-    "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
-    "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
-    "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
-}
+    st.caption("📊 Using built-in PASS data (Grades 6–8, Sept 2025).")
 
-# Info box showing status
-st.sidebar.info("📊 Using built-in PASS data (Grades 6–8, Sept 2025).")
+# ----------------- Tabs -----------------
+tab_gl, tab_hrt, tab_compare = st.tabs([
+    "🧑‍💼 GL View",
+    "🧑‍🏫 HRT View",
+    "📊 Cross-Grade Compare",
+])
+
+with tab_gl:
+    with st.sidebar:
+        st.header("📊 GL View Info")
+        st.write("""
+        **Source:** Cohort sheet  
+        **What you see:**  
+        - Grade-level averages per PASS domain  
+        - Cluster analysis (Self, Study, School)  
+        **Thresholds:**  
+        - <60 = 🟥 At Risk  
+        - 60–69 = 🟧 Monitor  
+        - ≥70 = 🟩 Secure
+        """)
+
+with tab_hrt:
+    with st.sidebar:
+        st.header("🧑‍🏫 HRT View Info")
+        st.write("""
+        **Source:** Profiles sheet  
+        **What you see:**  
+        - Class-level averages & descriptors  
+        - 🚩 Flagged = 2+ domains <60  
+        - Cluster scores for Self, Study, School  
+        - Gender split analysis (if available)
+        """)
+
+with tab_compare:
+    with st.sidebar:
+        st.header("📊 Cross-Grade Info")
+        st.write("""
+        **Source:** Cohort sheets (Grades 6–8)  
+        **What you see:**  
+        - Heatmap of domain scores across grades  
+        - Table comparing grade-level averages  
+        **Trends:**  
+        - ≥ +5 = improvement  
+        - ≤ -5 = decline
+        """)
+
 
 
 # ----------------- UI -----------------
