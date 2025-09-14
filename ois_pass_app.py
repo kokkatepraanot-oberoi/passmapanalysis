@@ -612,28 +612,33 @@ with tab_hrt:
         # 🚩 Flagged students
         st.markdown("### 🚩 Flagged Students")
         
-        # Add weak domains count
         class_df["# Weak Domains"] = (class_df[dom_cols] < 60).sum(axis=1)
-        
-        # Identify flagged students
         flagged = class_df[class_df["# Weak Domains"] >= 2]
         
         if not flagged.empty:
-            # Format scores with descriptor
             flagged_formatted = flagged.copy()
+        
             for col in dom_cols:
                 flagged_formatted[col] = (
-                    flagged_formatted[col].round(1).astype(str) 
+                    flagged_formatted[col].round(1).astype(str)
                     + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
                 )
         
+            # Style with background color for descriptors
+            def highlight_descriptor(val):
+                if "(" in val:
+                    desc = val.split("(")[-1].strip(")")
+                    return descriptor_color(desc)
+                return ""
+        
+            styled = flagged_formatted.style.applymap(highlight_descriptor, subset=dom_cols)
+        
             st.dataframe(
-                flagged_formatted[["Forename", "Surname", "Group", "# Weak Domains"] + dom_cols],
+                styled,
                 use_container_width=True
             )
         else:
             st.success("No flagged students in this HR class.")
-
 
         # Cluster analysis
         st.subheader(f"{gsel} {csel}: Cluster Analysis")
