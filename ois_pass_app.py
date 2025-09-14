@@ -694,21 +694,20 @@ with tab_compare:
         for g, df in by_grade.items():
             tmp = df.copy()
             tmp["Grade"] = g
-            tmp["Descriptor"] = tmp["Score"].apply(pass_descriptor)
-            tmp["Score"] = tmp["Score"].round(1)
+            tmp["Score"] = tmp["Score"].round(1)  # ensure 1 decimal
             rows.append(tmp)
 
         combined = pd.concat(rows)
 
-        # Pivot table: Domain x Grade
+        # Pivot table: Domain x Grade (scores only)
         pivot = combined.pivot_table(index="Domain", columns="Grade", values="Score")
         pivot = pivot.reindex(PASS_DOMAINS_NUM)
 
-        # Add descriptors per grade
-        pivot_desc = combined.pivot_table(index="Domain", columns="Grade", values="Descriptor")
+        # Build combined Score (Descriptor) manually
         pivot_combined = pivot.copy()
-        for col in pivot.columns:
-            pivot_combined[col] = pivot[col].round(1).astype(str) + " (" + pivot_desc[col] + ")"
+        for grade in pivot.columns:
+            descs = pivot[grade].apply(pass_descriptor)
+            pivot_combined[grade] = pivot[grade].round(1).astype(str) + " (" + descs + ")"
 
         # Apply color coding
         def highlight_descriptor(val):
@@ -718,12 +717,11 @@ with tab_compare:
             return ""
 
         styled = pivot_combined.style.applymap(highlight_descriptor)
-
         st.dataframe(styled, use_container_width=True)
 
-        # Heatmap for visual
+        # Heatmap (smaller size so table is main focus)
         M = pivot.values
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(6, 4))  # smaller plot
         im = ax.imshow(M, aspect="auto", vmin=0, vmax=100, cmap="coolwarm")
         ax.set_yticks(range(len(domains)))
         ax.set_yticklabels(domains)
@@ -754,14 +752,15 @@ with tab_compare:
         st.markdown("### ✅ Actionable Strategies (Cross-Grade)")
         st.markdown(
             """
-            - **Curriculum Demands** → Study skills workshops, scaffolded assignments, targeted Grade 8 support.  
-            - **Work Ethic & Preparedness** → Structured routines (planners, peer accountability), goal-setting at transitions.  
-            - **Teacher–Student Relationships** → 1:1 check-ins, positive calls home, teacher PD on relational strategies.  
-            - **Grade 6** → Maintain motivation, monitor flagged students.  
-            - **Grade 7** → Sustain engagement with collaborative, project-based learning.  
-            - **Grade 8** → Focus on time management, mentoring, and restorative dialogue around teacher relationships.  
+- **Curriculum Demands** → Study skills workshops, scaffolded assignments, targeted Grade 8 support.  
+- **Work Ethic & Preparedness** → Structured routines (planners, peer accountability), goal-setting at transitions.  
+- **Teacher–Student Relationships** → 1:1 check-ins, positive calls home, teacher PD on relational strategies.  
+- **Grade 6** → Maintain motivation, monitor flagged students.  
+- **Grade 7** → Sustain engagement with collaborative, project-based learning.  
+- **Grade 8** → Focus on time management, mentoring, and restorative dialogue around teacher relationships.  
             """
         )
 
     else:
         st.info("No cohort data parsed to compare across grades.")
+
