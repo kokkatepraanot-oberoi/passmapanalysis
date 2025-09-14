@@ -394,12 +394,40 @@ with tab_gl:
         fig.colorbar(im, ax=ax)
         st.pyplot(fig)
     
-        # Insights
-        st.markdown("### 🔎 HR Insights")
-        for hr in hr_means.index:
-            top_domain = hr_means.loc[hr].idxmax()
-            low_domain = hr_means.loc[hr].idxmin()
-            st.write(f"- {hr}: strongest in **{top_domain}**, weakest in **{low_domain}**.")
+        # ---- Insights and Actionables for Domain Domination Heatmap ----
+        st.markdown("### 🔎 Insights (Across HRs)")
+        
+        insights = []
+        # Calculate variability (range across HRs per domain)
+        for dom in hr_means.columns:
+            dom_scores = hr_means[dom].dropna()
+            if not dom_scores.empty:
+                dom_range = dom_scores.max() - dom_scores.min()
+                dom_avg = dom_scores.mean()
+        
+                if dom_range >= 15:  # big spread between HRs
+                    insights.append(f"- **{dom}** shows wide variability across HRs (range {dom_range:.1f}).")
+                if dom_avg < 65:
+                    insights.append(f"- **{dom}** is a weaker domain overall (average {dom_avg:.1f}).")
+                if dom_avg >= 75 and dom_range < 10:
+                    insights.append(f"- **{dom}** is a consistent strength across HRs (average {dom_avg:.1f}).")
+        
+        if insights:
+            st.info("\n".join(insights))
+        else:
+            st.success("No major domain-level concerns detected across HRs.")
+        
+        # Actionables
+        st.markdown("### ✅ Actionable Strategies (Across HRs)")
+        st.markdown(
+            """
+        - **Preparedness for learning & General work ethic** → reinforce routines (planners, peer accountability, structured check-ins).  
+        - **Attitudes to teachers** → relational focus: student voice surveys, restorative circles, positive reinforcement.  
+        - **Weaker HRs** → GLs to coordinate with specific HRTs for class-targeted interventions.  
+        - **Stronger HRs** → share practices at staff meetings so successful strategies cascade across the grade.  
+        """
+        )
+
 
     dfi = parsed_items.get(gsel, pd.DataFrame())
     if not dfi.empty:
