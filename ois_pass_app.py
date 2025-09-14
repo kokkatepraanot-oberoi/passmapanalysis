@@ -581,6 +581,15 @@ with tab_hrt:
 
         # Cluster analysis
         st.subheader(f"{gsel} {csel}: Cluster Analysis")
+    
+        # Show cluster definitions
+        st.caption("""
+        **Cluster Definitions:**  
+        - **Self:** PASS 2 (Perceived Learning Capability), PASS 3 (Self-regard as a Learner)  
+        - **Study:** PASS 4 (Preparedness for Learning), PASS 6 (General Work Ethic), PASS 7 (Confidence in Learning)  
+        - **School:** PASS 1 (Feelings about School), PASS 5 (Attitudes to Teachers), PASS 8 (Attitudes to Attendance), PASS 9 (Response to Curriculum)
+        """)
+
         cdf = cluster_scores(class_means.rename(columns={"Domain": "Domain"}))
         cdf["Descriptor"] = cdf["Score"].apply(pass_descriptor)
         styled = cdf.style.applymap(descriptor_color, subset=["Descriptor"])
