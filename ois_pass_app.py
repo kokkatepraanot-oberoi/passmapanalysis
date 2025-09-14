@@ -447,50 +447,39 @@ with tab_gl:
             styled = formatted.style.applymap(colorize)
             st.dataframe(styled, use_container_width=True)
 
-            # 🚩 Flagged Students (Low & below ≤40)
-            if not dfp.empty:
-                dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
-                st.markdown("### 🚩 Flagged Students (Low & below ≤40)")
-            
-                # Only students with ANY domain <= 40
-                flagged = dfp[(dfp[dom_cols] <= 40).any(axis=1)]
-            
-                if not flagged.empty:
-                    flagged_formatted = flagged.copy()
-            
-                    # Clean Group numbers like 6.1 instead of 6.100000
-                    flagged_formatted["Group"] = (
-                        flagged_formatted["Group"]
-                        .astype(str)
-                        .str.replace(".0", "", regex=False)
+        # 🚩 Flagged Students (Low & below ≤40)
+            st.markdown("### 🚩 Flagged Students (Low & below ≤40)")
+        
+            # ✅ Only students with ANY domain <= 40
+            flagged = dfp_num[dfp_num[dom_cols].le(40).any(axis=1)]
+        
+            if not flagged.empty:
+                flagged_formatted = flagged.copy()
+        
+                # Clean Group numbers (6.1 not 6.100000)
+                flagged_formatted["Group"] = (
+                    flagged_formatted["Group"]
+                    .astype(str)
+                    .str.replace(".0", "", regex=False)
+                )
+        
+                # Add descriptors
+                for col in dom_cols:
+                    flagged_formatted[col] = (
+                        flagged_formatted[col].round(1).astype(str)
+                        + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
                     )
+        
+                styled_flagged = flagged_formatted.style.applymap(colorize, subset=dom_cols)
+        
+                st.dataframe(
+                    styled_flagged,
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.success("✅ No flagged students (Low or below) in this grade.")
             
-                    # Format scores + descriptors for ONLY flagged subset
-                    for col in dom_cols:
-                        flagged_formatted[col] = (
-                            flagged_formatted[col].round(1).astype(str)
-                            + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
-                        )
-            
-                    # Apply SAME color coding as domain domination
-                    def colorize(val):
-                        if "(" in str(val):
-                            desc = val.split("(")[-1].strip(")")
-                            return descriptor_color(desc)
-                        return ""
-            
-                    styled_flagged = flagged_formatted.style.applymap(colorize, subset=dom_cols)
-            
-                    st.dataframe(
-                        styled_flagged,
-                        use_container_width=True,
-                        hide_index=True
-                    )
-                else:
-                    st.success("✅ No flagged students (Low or below) in this grade.")
-
-
-
 
 with tab_hrt:
     gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
