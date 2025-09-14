@@ -175,7 +175,7 @@ PASS_FILES = {
     "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
 }
 
-# ----------------- Parsers -----------------
+# ----------------- Parsers (Excel-based) -----------------
 def parse_cohort_sheet(src, sheet_name: str) -> pd.DataFrame:
     """Parse Cohort Analysis sheet (Grade-level domain scores)."""
     try:
@@ -189,12 +189,12 @@ def parse_cohort_sheet(src, sheet_name: str) -> pd.DataFrame:
         for col in df.columns:
             if dom.lower() in col.lower():
                 try:
-                    val = pd.to_numeric(df[col].iloc[0], errors="coerce")
+                    val = float(df[col].iloc[0])
                     data[DOMAIN_MAP[dom]] = val
                 except Exception:
                     pass
     out = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
-    out["Score"] = pd.to_numeric(out["Score"], errors="coerce").round(1)
+    out["Score"] = out["Score"].round(1)
     return out
 
 
@@ -215,7 +215,7 @@ def parse_individual_profiles(src, sheet_name: str) -> pd.DataFrame:
     if "Group" not in df.columns:
         df["Group"] = "All"
 
-    # Ensure Gender column
+    # Gender
     for col in df.columns:
         if "gender" in col.lower():
             df.rename(columns={col: "Gender"}, inplace=True)
@@ -225,7 +225,6 @@ def parse_individual_profiles(src, sheet_name: str) -> pd.DataFrame:
         for col in df.columns:
             if dom.lower() in col.lower():
                 df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
-                df[DOMAIN_MAP[dom]] = pd.to_numeric(df[DOMAIN_MAP[dom]], errors="coerce")
 
     return df
 
@@ -243,12 +242,6 @@ def parse_item_level(src, sheet_name: str) -> pd.DataFrame:
         for col in df.columns:
             if "category" in col.lower():
                 df.rename(columns={col: "Category"}, inplace=True)
-
-    # Ensure numeric for any domain cols
-    for dom in PASS_DOMAINS:
-        for col in df.columns:
-            if dom.lower() in col.lower():
-                df[col] = pd.to_numeric(df[col], errors="coerce")
 
     return df
 
@@ -269,7 +262,13 @@ def load_all_pass_files(pass_files):
     return parsed_profiles, parsed_cohort, parsed_items
 
 
-# Load data at startup
+# ----------------- Initialize -----------------
+PASS_FILES = {
+    "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
+    "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
+    "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
+}
+
 parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
 
 
