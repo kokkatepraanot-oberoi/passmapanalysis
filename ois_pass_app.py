@@ -541,11 +541,72 @@ with tab_hrt:
         else:
             st.success("No domain-specific strategies required. Maintain current strengths.")
 
+        with tab_hrt:
+    gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()), key="hrt_grade")
+    dfp = parsed_profiles.get(gsel, pd.DataFrame())
+
+    if dfp.empty:
+        st.warning("No profiles data uploaded for this grade.")
+    else:
+        classes = sorted(set(dfp["Group"].dropna().unique()))
+        csel = st.selectbox("Select HR class", classes, key="hrt_class")
+        class_df = dfp[dfp["Group"] == csel]
+        dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
+
+        # ✅ Class means
+        class_means = class_df[dom_cols].mean().reset_index()
+        class_means.columns = ["Domain", "Score"]
+        class_means["Score"] = class_means["Score"].round(1)
+        class_means["Descriptor"] = class_means["Score"].apply(pass_descriptor)
+
+        styled = class_means.style.applymap(descriptor_color, subset=["Descriptor"])
+        st.subheader(f"{gsel} {csel}: Class Analysis")
+        st.dataframe(styled, use_container_width=True)
+
+        # ✅ Donut chart
+        colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in class_means["Domain"]]
+        fig, ax = plt.subplots(figsize=(4, 4))
+        ax.pie(
+            class_means["Score"],
+            labels=class_means["Domain"],
+            autopct="%.1f%%",
+            startangle=90,
+            counterclock=False,
+            colors=colors,
+            wedgeprops=dict(width=0.4)
+        )
+        ax.set_title(f"{gsel} {csel}: Domain Distribution (Class)")
+        st.pyplot(fig)
+
+        # ✅ Insights
+        strengths, concerns = format_insights(class_means)
+        st.markdown("### 🔎 Insights (Class)")
+        if strengths:
+            st.success("**Strengths**\n" + "\n".join(strengths))
+        if concerns:
+            st.warning("**Concerns**\n" + "\n".join(concerns))
+
+        # ✅ Actionable Strategies
+        st.markdown("### ✅ Actionable Strategies (Class)")
+        weak_domains = []
+        for _, row in class_means.iterrows():
+            if row["Score"] < 65:
+                weak_domains.append(row["Domain"])
+        if weak_domains:
+            for dom in weak_domains:
+                strategies = DOMAIN_STRATEGIES.get(dom, [])
+                if strategies:
+                    st.markdown(f"**{dom}:**")
+                    for s in strategies:
+                        st.markdown(f"- {s}")
+        else:
+            st.success("No domain-specific strategies required. Maintain current strengths.")
+
         # 🚩 Flagged Students (Low & below ≤40)
         if not class_df.empty:
             st.markdown("### 🚩 Flagged Students (Low & below ≤40)")
 
-            # Work on numeric-only copy for domains
+            # Convert only domain columns to numeric
             class_num = class_df.copy()
             for col in dom_cols:
                 class_num[col] = pd.to_numeric(class_num[col], errors="coerce")
@@ -585,6 +646,27 @@ with tab_hrt:
 
             else:
                 st.success("✅ No flagged students (Low or below) in this class.")
+
+        # ✅ Cluster Analysis
+        st.subheader(f"{gsel} {csel}: Cluster Analysis")
+        st.caption("""
+        **Cluster Definitions:**  
+        - **Self:** PASS 2 (Perceived Learning Capability), PASS 3 (Self-regard as a Learner)  
+        - **Study:** PASS 4 (Preparedness for Learning), PASS 6 (General Work Ethic), PASS 7 (Confidence in Learning)  
+        - **School:** PASS 1 (Feelings about School), PASS 5 (Attitudes to Teachers), PASS 8 (Attitudes to Attendance), PASS 9 (Response to Curriculum)
+        """)
+        cdf = cluster_scores(class_means.rename(columns={"Domain": "Domain"}))
+        cdf["Descriptor"] = cdf["Score"].apply(pass_descriptor)
+        styled = cdf.style.applymap(descriptor_color, subset=["Descriptor"])
+        st.dataframe(styled, use_container_width=True)
+
+        make_bar(cdf.rename(columns={"Cluster": "Domain"}), f"{gsel} {csel}: Cluster Scores")
+        top, bot = format_insights(cdf.rename(columns={"Cluster": "Domain"}))
+        if top:
+            st.success("**Cluster Strengths**\n" + "\n".join(top))
+        if bot:
+            st.warning("**Cluster Concerns**\n" + "\n".join(bot))
+
 
         # ✅ Cluster Analysis
         st.subheader(f"{gsel} {csel}: Cluster Analysis")
