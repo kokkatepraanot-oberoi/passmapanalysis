@@ -253,9 +253,14 @@ def load_all_pass_files(pass_files):
 
     for grade, filepath in pass_files.items():
         try:
-            parsed_profiles[grade] = parse_individual_profiles(filepath, "Profiles")
-            parsed_cohort[grade] = parse_cohort_sheet(filepath, "Cohort")
-            parsed_items[grade] = parse_item_level(filepath, "Items")
+            sheets = list_sheets(filepath)
+            profile_sheet = choose_sheet(sheets, ["profile"])
+            cohort_sheet = choose_sheet(sheets, ["cohort"])
+            item_sheet = choose_sheet(sheets, ["item"])
+
+            parsed_profiles[grade] = parse_individual_profiles(filepath, profile_sheet)
+            parsed_cohort[grade] = parse_cohort_sheet(filepath, cohort_sheet)
+            parsed_items[grade] = parse_item_level(filepath, item_sheet)
         except Exception as e:
             st.error(f"❌ Failed to load {grade}: {e}")
 
