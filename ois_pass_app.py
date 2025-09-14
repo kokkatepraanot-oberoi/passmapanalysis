@@ -640,7 +640,7 @@ with tab_compare:
 
         if mats:
             M = np.column_stack(mats)
-            fig, ax = plt.subplots(figsize=(8, 6))
+            fig, ax = plt.subplots(figsize=(6, 3))
             im = ax.imshow(M, aspect="auto", vmin=0, vmax=100, cmap="coolwarm")
             ax.set_yticks(range(len(domains)))
             ax.set_yticklabels(domains)
