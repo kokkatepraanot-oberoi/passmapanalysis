@@ -556,7 +556,7 @@ with tab_hrt:
             if not flagged.empty:
                 flagged_formatted = flagged.copy()
 
-                # Clean Group numbers like 6.1 instead of 6.100000
+                # Clean Group numbers (6.1 not 6.100000)
                 flagged_formatted["Group"] = (
                     flagged_formatted["Group"]
                     .astype(str)
@@ -585,6 +585,7 @@ with tab_hrt:
 
             else:
                 st.success("✅ No flagged students (Low or below) in this class.")
+
 
 
         # ✅ Cluster Analysis
