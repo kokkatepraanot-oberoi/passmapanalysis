@@ -173,37 +173,30 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
 
     return df
 
-
-
-
 def parse_item_level(src, sheet_name: Optional[str]) -> pd.DataFrame:
     try:
-        raw = pd.read_excel(src, sheet_name=sheet_name)
+        # Start from row 4 (Excel row 5), same as Individual Profiles
+        df = pd.read_excel(src, sheet_name=sheet_name, header=4)
     except Exception:
         return pd.DataFrame()
 
-    # Normalize headers
-    clean_cols = {c: str(c).strip().lower() for c in raw.columns}
-    raw.rename(columns=clean_cols, inplace=True)
+    # Clean headers
+    df.columns = [str(c).strip() for c in df.columns]
 
-    # Detect Category column
-    cat_col = None
-    for col in raw.columns:
-        if "category" in col:
-            cat_col = col
-            break
-    if cat_col:
-        raw.rename(columns={cat_col: "Category"}, inplace=True)
-    else:
-        return pd.DataFrame()
+    # Ensure Category column exists
+    if "Category" not in df.columns:
+        for col in df.columns:
+            if "category" in col.lower():
+                df.rename(columns={col: "Category"}, inplace=True)
 
-    # Rename domains
+    # Rename domains (useful if PASS_DOMAINS map applies here too)
     for dom in PASS_DOMAINS:
-        for col in raw.columns:
-            if dom.lower() in col:
-                raw.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
+        for col in df.columns:
+            if dom.lower() in col.lower():
+                df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
 
-    return raw
+    return df
+
 
 
 # ----------------- Visualization + Analysis -----------------
