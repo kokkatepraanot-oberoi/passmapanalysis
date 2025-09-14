@@ -149,34 +149,37 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
     except Exception:
         return pd.DataFrame()
 
-    # Find header row (look for "Forename" or "Group")
+    # Find header row
     header_row = None
     for r in range(min(20, len(raw))):
         row_vals = [str(x).strip().lower() for x in raw.iloc[r].values]
         if any("forename" in v or "group" in v for v in row_vals):
             header_row = r
             break
-
     if header_row is None:
         return pd.DataFrame()
 
     df = pd.read_excel(src, sheet_name=sheet_name, header=header_row)
-
-    # Normalize headers
     df.columns = [str(c).strip().lower() for c in df.columns]
 
-    # Detect Group column
+    # If there are multiple "group-like" columns, prefer the one with values like "6.1", "7.2"
     group_col = None
     for col in df.columns:
         if any(key in col for key in ["group", "class", "form", "hr"]):
-            group_col = col
-            break
+            sample_vals = df[col].dropna().astype(str).head(20)
+            if any("." in v for v in sample_vals):  # looks like "6.1"
+                group_col = col
+                break
+            # Otherwise treat it as UPN
+            if all(v.startswith("B") for v in sample_vals):
+                df.rename(columns={col: "UPN"}, inplace=True)
+
     if group_col:
         df.rename(columns={group_col: "Group"}, inplace=True)
     else:
         df["Group"] = "All"
 
-    # Detect Gender column
+    # Gender
     for col in df.columns:
         if "gender" in col:
             df.rename(columns={col: "Gender"}, inplace=True)
