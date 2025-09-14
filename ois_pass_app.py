@@ -336,6 +336,22 @@ with tab_gl:
         show["Score"] = show["Score"].round(1)
         show["Status"] = show["Score"].apply(lambda x: "🟥" if x < 60 else "🟧" if x < 70 else "🟩")
         st.dataframe(show, hide_index=True, use_container_width=True)
+
+        # Donut chart
+        colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in df["Domain"]]
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.pie(
+            df["Score"],
+            labels=df["Domain"],
+            autopct="%.1f%%",
+            startangle=90,
+            counterclock=False,
+            colors=colors,
+            wedgeprops=dict(width=0.4)
+        )
+        ax.set_title(f"{gsel}: Domain Distribution (Cohort)")
+        st.pyplot(fig)
+
         make_bar(df, f"{gsel}: PASS Domains")
 
         strengths, concerns = format_insights(df)
@@ -361,13 +377,7 @@ with tab_gl:
     dfi = parsed_items.get(gsel, pd.DataFrame())
     if not dfi.empty:
         st.subheader("Gender Split Analysis (Cohort)")
-        # Compute domain averages by gender
         if "Category" in dfi.columns:
-            dom_means = {}
-            for dom in PASS_DOMAINS:
-                for col in dfi.columns:
-                    if dom.lower() in col.lower():
-                        dfi.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
             doms = [d for d in PASS_DOMAINS_NUM if d in dfi.columns]
             view = dfi[dfi["Category"].isin(["Overall", "Boys", "Girls"])]
             gender_df = view.groupby("Category")[doms].mean().reset_index()
@@ -384,7 +394,6 @@ with tab_hrt:
     if dfp.empty:
         st.warning("No profiles data uploaded for this grade.")
     else:
-        # Homeroom classes
         classes = sorted(set(dfp["Group"].dropna().unique()))
         csel = st.selectbox("Select HR class", classes)
         class_df = dfp[dfp["Group"] == csel]
@@ -395,6 +404,21 @@ with tab_hrt:
 
         st.subheader(f"{gsel} {csel}: Class Analysis")
         st.dataframe(class_means, use_container_width=True)
+
+        # Donut chart
+        colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in class_means["Domain"]]
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.pie(
+            class_means["Score"],
+            labels=class_means["Domain"],
+            autopct="%.1f%%",
+            startangle=90,
+            counterclock=False,
+            colors=colors,
+            wedgeprops=dict(width=0.4)
+        )
+        ax.set_title(f"{gsel} {csel}: Domain Distribution (Class)")
+        st.pyplot(fig)
 
         strengths, concerns = format_insights(class_means)
         st.markdown("### 🔎 Insights (Class)")
@@ -436,14 +460,13 @@ with tab_hrt:
             gender_df[dom_cols] = gender_df[dom_cols].round(1)
             st.dataframe(gender_df, use_container_width=True)
 
-            # Gender insights
             melted = gender_df.melt(id_vars="Gender", value_vars=dom_cols, var_name="Domain", value_name="Score")
             pivot = melted.pivot_table(index="Domain", columns="Gender", values="Score")
             insights = []
             if "Boys" in pivot.columns and "Girls" in pivot.columns:
                 for dom in dom_cols:
-                    boys = pivot.loc[dom, "Boys"] if "Boys" in pivot.columns else np.nan
-                    girls = pivot.loc[dom, "Girls"] if "Girls" in pivot.columns else np.nan
+                    boys = pivot.loc[dom, "Boys"]
+                    girls = pivot.loc[dom, "Girls"]
                     if pd.notna(boys) and pd.notna(girls):
                         gap = boys - girls
                         if abs(gap) >= 5:
