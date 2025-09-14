@@ -370,8 +370,9 @@ tab_gl, tab_hrt, tab_compare = st.tabs([
 ])
 
 with tab_gl:
-    gsel = st.selectbox("Select Grade (GL View)", list(PASS_FILES.keys()))
+    gsel = st.selectbox("Select Grade (GL View)", list(PASS_FILES.keys()), key="gl_grade")
     df = parsed_cohort.get(gsel, pd.DataFrame())
+    dfp = parsed_profiles.get(gsel, pd.DataFrame())
     if not df.empty:
         st.subheader("Cohort Analysis")
         show = df.copy()
