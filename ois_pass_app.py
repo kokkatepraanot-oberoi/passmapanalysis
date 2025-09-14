@@ -545,7 +545,7 @@ with tab_hrt:
         if not class_df.empty:
             st.markdown("### 🚩 Flagged Students (Low & below ≤40)")
 
-            # Convert only domain columns to numeric
+            # Work on a numeric-only copy for domains
             class_num = class_df.copy()
             for col in dom_cols:
                 class_num[col] = pd.to_numeric(class_num[col], errors="coerce")
@@ -570,7 +570,7 @@ with tab_hrt:
                         + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
                     )
 
-                # Apply descriptor-based color coding
+                # Apply descriptor-based color coding (same as Domain Domination)
                 def colorize(val):
                     if "(" in str(val):
                         desc = val.split("(")[-1].strip(")")
@@ -585,6 +585,7 @@ with tab_hrt:
 
             else:
                 st.success("✅ No flagged students (Low or below) in this class.")
+
 
 
         # ✅ Cluster Analysis
