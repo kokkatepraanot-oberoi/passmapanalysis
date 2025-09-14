@@ -361,7 +361,7 @@ st.sidebar.title("")
 
 
 # ----------------- UI -----------------
-st.title("🧭 OIS PASS Dashboard")
+st.title("🧭 OIS JVLR - MS PASS Dashboard")
 
 tab_gl, tab_hrt, tab_compare = st.tabs([
     "🧑‍💼 GL View",
@@ -429,15 +429,65 @@ with tab_gl:
         if bot:
             st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
-    # Domain domination across HRs
-    dfp = parsed_profiles.get(gsel, pd.DataFrame())
-    if not dfp.empty and "Group" in dfp.columns:
-        st.subheader("Domain Domination Across Homerooms")
-    
-        dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
-        hr_means = dfp.groupby("Group")[dom_cols].mean().round(1)
-    
-        st.dataframe(hr_means, use_container_width=True)
+        # ---- Domain Domination Across Homerooms ----
+        dfp = parsed_profiles.get(gsel, pd.DataFrame())
+        if not dfp.empty and "Group" in dfp.columns:
+            st.subheader("Domain Domination Across Homerooms")
+        
+            dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
+            hr_means = dfp.groupby("Group")[dom_cols].mean().round(1)
+        
+            # Format with descriptors like "73.7 (High)"
+            formatted = hr_means.copy()
+            for col in dom_cols:
+                formatted[col] = (
+                    hr_means[col].round(1).astype(str) 
+                    + " (" + hr_means[col].apply(pass_descriptor) + ")"
+                )
+        
+            # Apply color coding to descriptor part
+            def colorize(val):
+                # pull descriptor inside parentheses
+                if "(" in val:
+                    desc = val.split("(")[-1].strip(")")
+                    return descriptor_color(desc)
+                return ""
+        
+            styled = formatted.style.applymap(colorize)
+        
+            st.dataframe(styled, use_container_width=True)
+        
+            # ---- Insights ----
+            st.markdown("### 🔎 Insights (Across HRs)")
+            insights = []
+            for dom in dom_cols:
+                dom_scores = hr_means[dom].dropna()
+                if not dom_scores.empty:
+                    dom_range = dom_scores.max() - dom_scores.min()
+                    dom_avg = dom_scores.mean()
+                    if dom_range >= 15:
+                        insights.append(f"- **{dom}** shows wide variability (range {dom_range:.1f}).")
+                    if dom_avg < 65:
+                        insights.append(f"- **{dom}** is weak overall (avg {dom_avg:.1f}).")
+                    if dom_avg >= 75 and dom_range < 10:
+                        insights.append(f"- **{dom}** is a consistent strength (avg {dom_avg:.1f}).")
+        
+            if insights:
+                st.info("\n".join(insights))
+            else:
+                st.success("No major concerns detected across HRs.")
+        
+            # ---- Actionable Strategies ----
+            st.markdown("### ✅ Actionable Strategies (Across HRs)")
+            weak_domains = [dom for dom in dom_cols if hr_means[dom].mean() < 65]
+            if weak_domains:
+                for dom in weak_domains:
+                    st.markdown(f"**{dom}:**")
+                    for s in DOMAIN_STRATEGIES.get(dom, []):
+                        st.markdown(f"- {s}")
+            else:
+                st.success("No additional strategies required.")
+
     
         # Heatmap
         fig, ax = plt.subplots(figsize=(7, 4))
