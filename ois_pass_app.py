@@ -488,47 +488,33 @@ with tab_gl:
             else:
                 st.success("No additional strategies required.")
 
-            # 🚩 Flagged Students (GL view, across all HRs)
-            dfp = parsed_profiles.get(gsel, pd.DataFrame())
-            if not dfp.empty:
-                st.subheader("🚩 Flagged Students (Grade-wide)")
-        
-                dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
-                dfp["# Weak Domains"] = (dfp[dom_cols] < 60).sum(axis=1)
-        
-                flagged = dfp[dfp["# Weak Domains"] >= 2]
-                if not flagged.empty:
-                    flagged_formatted = flagged.copy()
-                    for col in dom_cols:
-                        flagged_formatted[col] = (
-                            flagged_formatted[col].round(1).astype(str) 
-                            + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
-                        )
-        
-                    # Apply color coding to descriptors
-                    def highlight_descriptor(val):
-                        if "(" in val:
-                            desc = val.split("(")[-1].strip(")")
-                            return descriptor_color(desc)
-                        return ""
-        
-                    styled = flagged_formatted[
-                        ["Forename", "Surname", "Group", "# Weak Domains"] + dom_cols
-                    ].style.applymap(highlight_descriptor, subset=dom_cols)
-        
-                    st.dataframe(styled, use_container_width=True)
-                    
-                    # Add insight text
-                    st.markdown("### 🔎 Insights (Flagged Students)")
-                    st.info(
-                        "- Students here have 2+ domains below 60.\n"
-                        "- Each row shows exact weak domains with descriptors.\n"
-                        "- Color coding aligns with PASS descriptors (green = strong, red = weak).\n"
-                        "- Use this to plan **targeted interventions** at grade level."
+          # 🚩 Flagged students (only ≤40 bands)
+            st.markdown("### 🚩 Flagged Students")
+            
+            dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
+            
+            # A student is flagged if ANY domain ≤ 40
+            flagged = class_df[(class_df[dom_cols] <= 40).any(axis=1)]
+            
+            if not flagged.empty:
+                flagged_formatted = flagged.copy()
+                for col in dom_cols:
+                    flagged_formatted[col] = (
+                        flagged_formatted[col].round(1).astype(str) 
+                        + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
                     )
-        
-                else:
-                    st.success("No flagged students in this grade cohort.")
+            
+                # Apply color coding
+                styled = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
+            
+                st.dataframe(
+                    styled,
+                    use_container_width=True,
+                    hide_index=True
+                )
+            else:
+                st.success("✅ No flagged students in this HR class.")
+
 
         # Heatmap
         fig, ax = plt.subplots(figsize=(7, 4))
@@ -680,38 +666,6 @@ with tab_hrt:
             )
         else:
             st.success("No flagged students in this HR class.")
-
-        with st.sidebar:
-        if st.session_state.get("active_tab") == "GL":
-            st.markdown("### 🚩 At-Risk Students (≤40)")
-    
-            dfp = parsed_profiles.get(st.session_state.get("gl_grade", ""), pd.DataFrame())
-            if not dfp.empty:
-                dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
-    
-                # Count students with ANY domain ≤ 40
-                dfp["AtRisk"] = (dfp[dom_cols] <= 40).sum(axis=1)
-                flagged = dfp[dfp["AtRisk"] > 0]
-    
-                if not flagged.empty:
-                    hr_counts = flagged["Group"].value_counts().reset_index()
-                    hr_counts.columns = ["Homeroom", "At-Risk Students"]
-    
-                    # Color coding: critical >=5, vulnerable 3-4, etc.
-                    def risk_color(val):
-                        if val >= 5:   # many at-risk
-                            return "background-color: #8B0000; color: white"  # Critical red
-                        elif val >= 3:
-                            return "background-color: #DC143C; color: white"  # Vulnerable
-                        elif val >= 1:
-                            return "background-color: #FF4500; color: white"  # Cause for Concern
-                        return ""
-    
-                    styled = hr_counts.style.applymap(risk_color, subset=["At-Risk Students"])
-                    st.dataframe(styled, hide_index=True, use_container_width=True)
-    
-                else:
-                    st.success("✅ No at-risk students in this grade")
 
         
         # Cluster analysis
