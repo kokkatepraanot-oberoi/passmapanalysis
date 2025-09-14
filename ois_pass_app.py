@@ -479,37 +479,30 @@ with tab_gl:
                 )
             else:
                 st.success("✅ No flagged students (Low or below) in this grade.")
-            
 
 with tab_hrt:
-    gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
+    gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()), key="hrt_grade")
     dfp = parsed_profiles.get(gsel, pd.DataFrame())
+
     if dfp.empty:
         st.warning("No profiles data uploaded for this grade.")
     else:
         classes = sorted(set(dfp["Group"].dropna().unique()))
-        csel = st.selectbox("Select HR class", classes)
+        csel = st.selectbox("Select HR class", classes, key="hrt_class")
         class_df = dfp[dfp["Group"] == csel]
         dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
+
+        # ✅ Class means
         class_means = class_df[dom_cols].mean().reset_index()
         class_means.columns = ["Domain", "Score"]
         class_means["Score"] = class_means["Score"].round(1)
         class_means["Descriptor"] = class_means["Score"].apply(pass_descriptor)
 
-        # ✅ Apply descriptor color formatting
         styled = class_means.style.applymap(descriptor_color, subset=["Descriptor"])
-
         st.subheader(f"{gsel} {csel}: Class Analysis")
-
-        # ❌ This ignores styling
-        # st.dataframe(class_means, use_container_width=True)
-
-        # ✅ This keeps the color coding
         st.dataframe(styled, use_container_width=True)
-        # or alternatively
-        # st.table(styled)
 
-        # Donut chart
+        # ✅ Donut chart
         colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in class_means["Domain"]]
         fig, ax = plt.subplots(figsize=(4, 4))
         ax.pie(
@@ -524,6 +517,7 @@ with tab_hrt:
         ax.set_title(f"{gsel} {csel}: Domain Distribution (Class)")
         st.pyplot(fig)
 
+        # ✅ Insights
         strengths, concerns = format_insights(class_means)
         st.markdown("### 🔎 Insights (Class)")
         if strengths:
@@ -531,12 +525,12 @@ with tab_hrt:
         if concerns:
             st.warning("**Concerns**\n" + "\n".join(concerns))
 
+        # ✅ Actionable Strategies
         st.markdown("### ✅ Actionable Strategies (Class)")
         weak_domains = []
         for _, row in class_means.iterrows():
             if row["Score"] < 65:
                 weak_domains.append(row["Domain"])
-        
         if weak_domains:
             for dom in weak_domains:
                 strategies = DOMAIN_STRATEGIES.get(dom, [])
@@ -547,19 +541,53 @@ with tab_hrt:
         else:
             st.success("No domain-specific strategies required. Maintain current strengths.")
 
-        
-        
-        # Cluster analysis
+        # 🚩 Flagged Students (≥2 weak domains <60)
+        st.markdown("### 🚩 Flagged Students (≥2 weak domains <60)")
+        flagged = class_df.copy()
+        flagged["# Weak Domains"] = (flagged[dom_cols] < 60).sum(axis=1)
+        flagged = flagged[flagged["# Weak Domains"] >= 2]
+
+        if not flagged.empty:
+            flagged_formatted = flagged.copy()
+
+            # Clean Group numbers
+            flagged_formatted["Group"] = (
+                flagged_formatted["Group"].astype(str).str.replace(".0", "", regex=False)
+            )
+
+            # Add descriptors
+            for col in dom_cols:
+                flagged_formatted[col] = (
+                    flagged_formatted[col].round(1).astype(str)
+                    + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
+                )
+
+            def colorize(val):
+                if "(" in str(val):
+                    desc = val.split("(")[-1].strip(")")
+                    return descriptor_color(desc)
+                return ""
+
+            styled_flagged = flagged_formatted[
+                ["Forename", "Surname", "Group", "# Weak Domains"] + dom_cols
+            ].style.applymap(colorize, subset=dom_cols)
+
+            st.dataframe(
+                styled_flagged,
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.success("✅ No flagged students in this HR class.")
+
+        # ✅ Cluster Analysis
         st.subheader(f"{gsel} {csel}: Cluster Analysis")
-    
-        # Show cluster definitions
         st.caption("""
         **Cluster Definitions:**  
         - **Self:** PASS 2 (Perceived Learning Capability), PASS 3 (Self-regard as a Learner)  
         - **Study:** PASS 4 (Preparedness for Learning), PASS 6 (General Work Ethic), PASS 7 (Confidence in Learning)  
         - **School:** PASS 1 (Feelings about School), PASS 5 (Attitudes to Teachers), PASS 8 (Attitudes to Attendance), PASS 9 (Response to Curriculum)
         """)
-
         cdf = cluster_scores(class_means.rename(columns={"Domain": "Domain"}))
         cdf["Descriptor"] = cdf["Score"].apply(pass_descriptor)
         styled = cdf.style.applymap(descriptor_color, subset=["Descriptor"])
@@ -571,28 +599,6 @@ with tab_hrt:
             st.success("**Cluster Strengths**\n" + "\n".join(top))
         if bot:
             st.warning("**Cluster Concerns**\n" + "\n".join(bot))
-
-        # Gender Split Analysis (per-HR if Gender column exists)
-        if "Gender" in class_df.columns:
-            st.subheader("Gender Split Analysis (Class-level)")
-            gender_df = class_df.groupby("Gender")[dom_cols].mean().reset_index()
-            gender_df[dom_cols] = gender_df[dom_cols].round(1)
-            st.dataframe(gender_df, use_container_width=True)
-
-            melted = gender_df.melt(id_vars="Gender", value_vars=dom_cols, var_name="Domain", value_name="Score")
-            pivot = melted.pivot_table(index="Domain", columns="Gender", values="Score")
-            insights = []
-            if "Boys" in pivot.columns and "Girls" in pivot.columns:
-                for dom in dom_cols:
-                    boys = pivot.loc[dom, "Boys"]
-                    girls = pivot.loc[dom, "Girls"]
-                    if pd.notna(boys) and pd.notna(girls):
-                        gap = boys - girls
-                        if abs(gap) >= 5:
-                            weaker = "Boys" if gap < 0 else "Girls"
-                            insights.append(f"- {weaker} weaker in {dom} (gap {gap:+.1f})")
-            if insights:
-                st.info("**Gender Gaps**\n" + "\n".join(insights))
 
 with tab_compare:
     st.subheader("Cross-Grade Comparison (Cohort)")
