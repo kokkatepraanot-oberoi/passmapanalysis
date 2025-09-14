@@ -471,5 +471,38 @@ with tab_compare:
         pivot = pd.concat(rows).pivot_table(index="Domain", columns="Grade", values="Score")
         pivot = pivot.reindex(PASS_DOMAINS_NUM)
         st.dataframe(pivot.round(1), use_container_width=True)
+                # ---- Cross-Grade Insights + Actionables ----
+        st.markdown("### 🔎 Insights (Cross-Grade Trends)")
+
+        insights = []
+        # Calculate trends per domain
+        for dom in PASS_DOMAINS_NUM:
+            if dom in pivot.index:
+                vals = pivot.loc[dom].dropna()
+                if len(vals) >= 2:
+                    trend = vals.iloc[-1] - vals.iloc[0]  # Grade8 - Grade6
+                    if trend <= -5:
+                        insights.append(f"- **{dom}** declines across grades (drop {trend:.1f})")
+                    elif trend >= 5:
+                        insights.append(f"- **{dom}** improves across grades (gain {trend:.1f})")
+
+        if insights:
+            st.info("\n".join(insights))
+        else:
+            st.success("No major cross-grade declines detected.")
+
+        # Actionable Strategies
+        st.markdown("### ✅ Actionable Strategies (Cross-Grade)")
+        st.markdown(
+            """
+- **Curriculum Demands** → Study skills workshops, scaffolded assignments, targeted Grade 8 support.  
+- **Work Ethic & Preparedness** → Structured routines (planners, peer accountability), goal-setting at transitions.  
+- **Teacher–Student Relationships** → 1:1 check-ins, positive calls home, teacher PD on relational strategies.  
+- **Grade 6** → Maintain motivation, monitor flagged students.  
+- **Grade 7** → Sustain engagement with collaborative, project-based learning.  
+- **Grade 8** → Focus on time management, mentoring, and restorative dialogue around teacher relationships.  
+            """
+        )
+
     else:
         st.info("No cohort data parsed to compare across grades.")
