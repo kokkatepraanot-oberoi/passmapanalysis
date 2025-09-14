@@ -424,7 +424,7 @@ with tab_gl:
         - **Preparedness for learning & General work ethic** → reinforce routines (planners, peer accountability, structured check-ins).  
         - **Attitudes to teachers** → relational focus: student voice surveys, restorative circles, positive reinforcement.  
         - **Weaker HRs** → GLs to coordinate with specific HRTs for class-targeted interventions.  
-        - **Stronger HRs** → share practices at staff meetings so successful strategies cascade across the grade.  
+        - **Stronger HRs** → share practices at HRT meetings so successful strategies cascade across the grade.  
         """
         )
 
