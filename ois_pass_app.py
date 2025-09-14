@@ -493,9 +493,7 @@ with tab_hrt:
         class_means["Score"] = class_means["Score"].round(1)
         class_means["Descriptor"] = class_means["Score"].apply(pass_descriptor)
         styled = class_means.style.applymap(descriptor_color, subset=["Descriptor"])
-        st.dataframe(styled, use_container_width=True)
-
-
+        
         st.subheader(f"{gsel} {csel}: Class Analysis")
         st.dataframe(class_means, use_container_width=True)
 
