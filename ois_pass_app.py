@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="OIS PASS Dashboard", layout="wide")
+st.set_page_config(page_title="OIS JVLR - MS PASS Dashboard", layout="wide")
 
 # --------- CONFIG ---------
 
@@ -354,45 +354,31 @@ def cluster_scores(df: pd.DataFrame) -> pd.DataFrame:
             scores[cname] = vals.mean().round(1)
     return pd.Series(scores).rename_axis("Cluster").reset_index(name="Score")
 
-# ----------------- Sidebar uploads -----------------
-st.sidebar.info("📊 Using built-in PASS data (G6, G7, G8 for Sept 2025).")
+# ---------------- Sidebar UI ----------------
+st.sidebar.title("📊 OIS PASS Dashboard")
 
-st.sidebar.header("📁 Upload PASS workbooks (G6, G7, G8)")
-uploaded = {g: st.sidebar.file_uploader(f"{g} (.xlsx)", type=["xlsx"], key=f"u_{g}") for g in PASS_FILES}
-
-parsed_cohort: Dict[str, pd.DataFrame] = {}
-parsed_profiles: Dict[str, pd.DataFrame] = {}
-parsed_items: Dict[str, pd.DataFrame] = {}
-
-SHEET_HINTS = {
-    "cohort": ["cohort analysis"],
-    "profiles": ["individual profiles", "student profiles"],
-    "items": ["item level analysis", "item-level analysis"],
+# Built-in file paths
+PASS_FILES = {
+    "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
+    "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
+    "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
 }
 
-for grade in PASS_FILES:
-    src = uploaded[grade]
-    if src is None:
-        parsed_cohort[grade] = pd.DataFrame()
-        parsed_profiles[grade] = pd.DataFrame()
-        parsed_items[grade] = pd.DataFrame()
-        continue
-    sheets = list_sheets(src)
-    sh_cohort = choose_sheet(sheets, SHEET_HINTS["cohort"])
-    sh_profiles = choose_sheet(sheets, SHEET_HINTS["profiles"])
-    sh_items = choose_sheet(sheets, SHEET_HINTS["items"])
-    try:
-        parsed_cohort[grade] = parse_cohort_sheet(src, sh_cohort)
-    except Exception:
-        parsed_cohort[grade] = pd.DataFrame()
-    try:
-        parsed_profiles[grade] = parse_individual_profiles(src, sh_profiles)
-    except Exception:
-        parsed_profiles[grade] = pd.DataFrame()
-    try:
-        parsed_items[grade] = parse_item_level(src, sh_items)
-    except Exception:
-        parsed_items[grade] = pd.DataFrame()
+# Info box showing status
+st.sidebar.info("📊 Using built-in PASS data (Grades 6–8, Sept 2025).")
+
+# Optional uploads to replace built-in files
+st.sidebar.markdown("### 📂 Upload PASS workbooks (optional)")
+uploaded_files = {}
+for grade in PASS_FILES.keys():
+    uploaded = st.sidebar.file_uploader(
+        f"{grade} workbook (.xlsx)",
+        type=["xlsx"],
+        key=f"upload_{grade.replace(' ', '_')}",
+    )
+    if uploaded is not None:
+        uploaded_files[grade] = uploaded
+
 
 # ----------------- UI -----------------
 st.title("🧭 OIS PASS Dashboard")
