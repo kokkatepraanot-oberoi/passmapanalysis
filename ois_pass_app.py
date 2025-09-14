@@ -168,6 +168,13 @@ def descriptor_color(val):
     }
     return mapping.get(val, "")
     
+# --------- CONFIG ---------
+PASS_FILES = {
+    "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
+    "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
+    "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
+}
+
 # ----------------- Parsers -----------------
 def parse_cohort_sheet(src, sheet_name: str) -> pd.DataFrame:
     """Parse Cohort Analysis sheet (Grade-level domain scores)."""
@@ -187,7 +194,7 @@ def parse_cohort_sheet(src, sheet_name: str) -> pd.DataFrame:
                 except Exception:
                     pass
     out = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
-    out["Score"] = out["Score"].round(1)
+    out["Score"] = pd.to_numeric(out["Score"], errors="coerce").round(1)
     return out
 
 
@@ -208,7 +215,7 @@ def parse_individual_profiles(src, sheet_name: str) -> pd.DataFrame:
     if "Group" not in df.columns:
         df["Group"] = "All"
 
-    # Gender
+    # Ensure Gender column
     for col in df.columns:
         if "gender" in col.lower():
             df.rename(columns={col: "Gender"}, inplace=True)
@@ -262,15 +269,8 @@ def load_all_pass_files(pass_files):
     return parsed_profiles, parsed_cohort, parsed_items
 
 
-# Example usage (pointing to Excel files)
-PASS_FILES = {
-    "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
-    "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
-    "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
-}
-
+# Load data at startup
 parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
-
 
 
 # ----------------- Visualization + Analysis -----------------
