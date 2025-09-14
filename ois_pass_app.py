@@ -168,6 +168,7 @@ def descriptor_color(val):
     return mapping.get(val, "")
     
 # ----------------- Parsers -----------------
+
 def clean_profiles(df: pd.DataFrame) -> pd.DataFrame:
     """Clean and normalize Individual Profiles sheet (student-level data)."""
     if df.empty:
@@ -189,7 +190,7 @@ def clean_profiles(df: pd.DataFrame) -> pd.DataFrame:
         if "gender" in col.lower():
             df.rename(columns={col: "Gender"}, inplace=True)
 
-    # Map domains to consistent names + force numeric
+    # Map domains to consistent names
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
@@ -199,6 +200,9 @@ def clean_profiles(df: pd.DataFrame) -> pd.DataFrame:
     for dom in PASS_DOMAINS_NUM:
         if dom in df.columns:
             df[dom] = pd.to_numeric(df[dom], errors="coerce")
+
+    # Drop rows with no valid scores
+    df = df.dropna(how="all", subset=PASS_DOMAINS_NUM)
 
     return df
 
@@ -224,6 +228,8 @@ def clean_cohort(df: pd.DataFrame) -> pd.DataFrame:
 
     out = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
     out["Score"] = out["Score"].round(1)
+    out = out.dropna(subset=["Score"])
+
     return out
 
 
@@ -241,15 +247,19 @@ def clean_items(df: pd.DataFrame) -> pd.DataFrame:
             if "category" in col.lower():
                 df.rename(columns={col: "Category"}, inplace=True)
 
-    # Map domains if present + force numeric
+    # Map domains if present
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
                 df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
 
+    # Convert domain cols to numeric
     for dom in PASS_DOMAINS_NUM:
         if dom in df.columns:
             df[dom] = pd.to_numeric(df[dom], errors="coerce")
+
+    # Drop empty rows
+    df = df.dropna(how="all", subset=PASS_DOMAINS_NUM)
 
     return df
 
@@ -275,7 +285,7 @@ def load_all_pass_files(pass_files):
             items = df[df["Sheet"].str.contains("Item", case=False)].copy()
             parsed_items[grade] = clean_items(items)
 
-            # ✅ Validation messages
+            # ✅ Validation message
             st.sidebar.success(
                 f"{grade}: "
                 f"{len(parsed_profiles[grade]) if not parsed_profiles[grade].empty else 0} profiles | "
@@ -291,8 +301,10 @@ def load_all_pass_files(pass_files):
 
     return parsed_profiles, parsed_cohort, parsed_items
 
+
 # Load everything at startup
 parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
+
 
 
 # ----------------- Visualization + Analysis -----------------
