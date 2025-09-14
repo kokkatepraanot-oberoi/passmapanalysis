@@ -168,13 +168,35 @@ def descriptor_color(val):
     return mapping.get(val, "")
     
 # ----------------- Parsers -----------------
+def parse_cohort_sheet(src, sheet_name: str) -> pd.DataFrame:
+    """Parse Cohort Analysis sheet (Grade-level domain scores)."""
+    try:
+        df = pd.read_excel(src, sheet_name=sheet_name, header=4)
+    except Exception:
+        return pd.DataFrame()
 
-def clean_profiles(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean and normalize Individual Profiles sheet (student-level data)."""
-    if df.empty:
-        return df
+    df.columns = [str(c).strip() for c in df.columns]
+    data = {}
+    for dom in PASS_DOMAINS:
+        for col in df.columns:
+            if dom.lower() in col.lower():
+                try:
+                    val = pd.to_numeric(df[col].iloc[0], errors="coerce")
+                    data[DOMAIN_MAP[dom]] = val
+                except Exception:
+                    pass
+    out = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
+    out["Score"] = out["Score"].round(1)
+    return out
 
-    df = df.copy()
+
+def parse_individual_profiles(src, sheet_name: str) -> pd.DataFrame:
+    """Parse Individual Profiles (student-level data)."""
+    try:
+        df = pd.read_excel(src, sheet_name=sheet_name, header=4)
+    except Exception:
+        return pd.DataFrame()
+
     df.columns = [str(c).strip() for c in df.columns]
 
     # Ensure Group column
@@ -185,81 +207,40 @@ def clean_profiles(df: pd.DataFrame) -> pd.DataFrame:
     if "Group" not in df.columns:
         df["Group"] = "All"
 
-    # Ensure Gender column
+    # Gender
     for col in df.columns:
         if "gender" in col.lower():
             df.rename(columns={col: "Gender"}, inplace=True)
 
-    # Map domains to consistent names
+    # Map domains
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
                 df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
-
-    # Convert domain cols to numeric
-    for dom in PASS_DOMAINS_NUM:
-        if dom in df.columns:
-            df[dom] = pd.to_numeric(df[dom], errors="coerce")
-
-    # Drop rows with no valid scores
-    df = df.dropna(how="all", subset=PASS_DOMAINS_NUM)
+                df[DOMAIN_MAP[dom]] = pd.to_numeric(df[DOMAIN_MAP[dom]], errors="coerce")
 
     return df
 
 
-def clean_cohort(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean Cohort Analysis (grade-level domain scores)."""
-    if df.empty:
-        return df
+def parse_item_level(src, sheet_name: str) -> pd.DataFrame:
+    """Parse Item Level Analysis (gender splits)."""
+    try:
+        df = pd.read_excel(src, sheet_name=sheet_name, header=4)
+    except Exception:
+        return pd.DataFrame()
 
-    df = df.copy()
-    df.columns = [str(c).strip() for c in df.columns]
-    data = {}
-
-    # Extract domain scores
-    for dom in PASS_DOMAINS:
-        for col in df.columns:
-            if dom.lower() in col.lower():
-                try:
-                    val = pd.to_numeric(df[col].iloc[0], errors="coerce")
-                    data[DOMAIN_MAP[dom]] = val
-                except Exception:
-                    pass
-
-    out = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
-    out["Score"] = out["Score"].round(1)
-    out = out.dropna(subset=["Score"])
-
-    return out
-
-
-def clean_items(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean Item Level Analysis (gender splits)."""
-    if df.empty:
-        return df
-
-    df = df.copy()
     df.columns = [str(c).strip() for c in df.columns]
 
-    # Ensure Category column
     if "Category" not in df.columns:
         for col in df.columns:
             if "category" in col.lower():
                 df.rename(columns={col: "Category"}, inplace=True)
 
-    # Map domains if present
+    # Ensure numeric for any domain cols
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
-                df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
-
-    # Convert domain cols to numeric
-    for dom in PASS_DOMAINS_NUM:
-        if dom in df.columns:
-            df[dom] = pd.to_numeric(df[dom], errors="coerce")
-
-    # Drop empty rows
-    df = df.dropna(how="all", subset=PASS_DOMAINS_NUM)
+                df[col] = pd.to_numeric(df[col], errors="coerce")
 
     return df
 
@@ -271,38 +252,22 @@ def load_all_pass_files(pass_files):
 
     for grade, filepath in pass_files.items():
         try:
-            df = pd.read_csv(filepath)
-
-            # Profiles
-            profiles = df[df["Sheet"].str.contains("Profile", case=False)].copy()
-            parsed_profiles[grade] = clean_profiles(profiles)
-
-            # Cohort
-            cohort = df[df["Sheet"].str.contains("Cohort", case=False)].copy()
-            parsed_cohort[grade] = clean_cohort(cohort)
-
-            # Items
-            items = df[df["Sheet"].str.contains("Item", case=False)].copy()
-            parsed_items[grade] = clean_items(items)
-
-            # ✅ Validation message
-            st.sidebar.success(
-                f"{grade}: "
-                f"{len(parsed_profiles[grade]) if not parsed_profiles[grade].empty else 0} profiles | "
-                f"{len(parsed_cohort[grade]) if not parsed_cohort[grade].empty else 0} cohort rows | "
-                f"{len(parsed_items[grade]) if not parsed_items[grade].empty else 0} item rows"
-            )
-
+            parsed_profiles[grade] = parse_individual_profiles(filepath, "Profiles")
+            parsed_cohort[grade] = parse_cohort_sheet(filepath, "Cohort")
+            parsed_items[grade] = parse_item_level(filepath, "Items")
         except Exception as e:
-            st.sidebar.error(f"❌ Failed to load {grade}: {e}")
-            parsed_profiles[grade] = pd.DataFrame()
-            parsed_cohort[grade] = pd.DataFrame()
-            parsed_items[grade] = pd.DataFrame()
+            st.error(f"❌ Failed to load {grade}: {e}")
 
     return parsed_profiles, parsed_cohort, parsed_items
 
 
-# Load everything at startup
+# Example usage (pointing to Excel files)
+PASS_FILES = {
+    "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
+    "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
+    "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
+}
+
 parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
 
 
@@ -389,6 +354,8 @@ def cluster_scores(df: pd.DataFrame) -> pd.DataFrame:
     return pd.Series(scores).rename_axis("Cluster").reset_index(name="Score")
 
 # ----------------- Sidebar uploads -----------------
+st.sidebar.info("📊 Using built-in PASS data (G6, G7, G8 for Sept 2025).")
+
 st.sidebar.header("📁 Upload PASS workbooks (G6, G7, G8)")
 uploaded = {g: st.sidebar.file_uploader(f"{g} (.xlsx)", type=["xlsx"], key=f"u_{g}") for g in PASS_FILES}
 
