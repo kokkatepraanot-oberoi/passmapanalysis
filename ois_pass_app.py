@@ -492,10 +492,19 @@ with tab_hrt:
         class_means.columns = ["Domain", "Score"]
         class_means["Score"] = class_means["Score"].round(1)
         class_means["Descriptor"] = class_means["Score"].apply(pass_descriptor)
+
+        # ✅ Apply descriptor color formatting
         styled = class_means.style.applymap(descriptor_color, subset=["Descriptor"])
-        
+
         st.subheader(f"{gsel} {csel}: Class Analysis")
-        st.dataframe(class_means, use_container_width=True)
+
+        # ❌ This ignores styling
+        # st.dataframe(class_means, use_container_width=True)
+
+        # ✅ This keeps the color coding
+        st.dataframe(styled, use_container_width=True)
+        # or alternatively
+        # st.table(styled)
 
         # Donut chart
         colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in class_means["Domain"]]
