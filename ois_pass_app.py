@@ -457,25 +457,28 @@ with tab_gl:
                 if not flagged.empty:
                     flagged_formatted = flagged.copy()
             
-                    # Format Group (6.1 instead of 6.100000)
+                    # Clean up Group display (6.1 instead of 6.100000)
                     flagged_formatted["Group"] = (
                         flagged_formatted["Group"]
                         .astype(str)
                         .str.replace(".0", "", regex=False)
                     )
             
-                    # Add formatted scores with descriptors
+                    # Format scores with descriptors
                     for col in dom_cols:
                         flagged_formatted[col] = (
                             flagged[col].round(1).astype(str)
                             + " (" + flagged[col].apply(pass_descriptor) + ")"
                         )
             
-                    # Apply descriptor-based coloring
-                    styled_flagged = flagged_formatted.style.applymap(
-                        lambda val: descriptor_color(val.split("(")[-1].strip(")"))
-                        if "(" in str(val) else ""
-                    , subset=dom_cols)
+                    # Apply SAME color coding as domain domination
+                    def colorize(val):
+                        if "(" in str(val):
+                            desc = val.split("(")[-1].strip(")")
+                            return descriptor_color(desc)
+                        return ""
+            
+                    styled_flagged = flagged_formatted.style.applymap(colorize, subset=dom_cols)
             
                     st.dataframe(
                         styled_flagged,
@@ -484,6 +487,7 @@ with tab_gl:
                     )
                 else:
                     st.success("✅ No flagged students (Low or below) in this grade.")
+
 
 
 
