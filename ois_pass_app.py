@@ -167,13 +167,6 @@ def descriptor_color(val):
         "Critical": "background-color: #8B0000; color: white",
     }
     return mapping.get(val, "")
-    
-# --------- CONFIG ---------
-PASS_FILES = {
-    "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
-    "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
-    "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
-}
 
 # ----------------- Parsers -----------------
 def parse_cohort_sheet(src, sheet_name: str) -> pd.DataFrame:
