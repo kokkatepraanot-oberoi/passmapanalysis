@@ -353,7 +353,7 @@ def cluster_scores(df: pd.DataFrame) -> pd.DataFrame:
     return pd.Series(scores).rename_axis("Cluster").reset_index(name="Score")
 
 # ---------------- Sidebar Navigation ----------------
-st.sidebar.title("🔗 Quick Navigation")
+st.sidebar.title("")
 
 
 
