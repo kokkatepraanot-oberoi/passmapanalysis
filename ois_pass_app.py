@@ -371,23 +371,27 @@ with tab_gl:
         st.markdown("[Cluster Analysis](#clusters)")
         st.markdown("[Domain Domination](#domination)")
 
-    gsel = st.selectbox("Select Grade (GL View)", list(PASS_FILES.keys()))
+    gsel = st.selectbox(
+        "Select Grade (GL View)", 
+        list(PASS_FILES.keys()), 
+        key="gl_grade"
+    )
     df = parsed_cohort.get(gsel, pd.DataFrame())
 
     if not df.empty:
         st.markdown("<a name='cohort'></a>", unsafe_allow_html=True)
         st.subheader("Cohort Analysis")
-        # ... your cohort code here ...
+        # --- your cohort analysis code here ---
 
         st.markdown("<a name='clusters'></a>", unsafe_allow_html=True)
         st.subheader("Cluster Analysis (Cohort)")
-        # ... your cluster code here ...
+        # --- your cluster analysis code here ---
 
     dfp = parsed_profiles.get(gsel, pd.DataFrame())
     if not dfp.empty and "Group" in dfp.columns:
         st.markdown("<a name='domination'></a>", unsafe_allow_html=True)
         st.subheader("Domain Domination Across Homerooms")
-        # ... your domain domination code here ...
+        # --- your domain domination code here ---
 
 
 # ----------------- HRT View -----------------
@@ -400,30 +404,38 @@ with tab_hrt:
         st.markdown("[Cluster Analysis](#hrtclusters)")
         st.markdown("[Gender Split](#hrtgender)")
 
-    gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
+    gsel = st.selectbox(
+        "Select Grade (HRT View)", 
+        list(PASS_FILES.keys()), 
+        key="hrt_grade"
+    )
     dfp = parsed_profiles.get(gsel, pd.DataFrame())
 
     if not dfp.empty:
         classes = sorted(set(dfp["Group"].dropna().unique()))
-        csel = st.selectbox("Select HR class", classes)
+        csel = st.selectbox(
+            "Select HR class", 
+            classes, 
+            key=f"hrt_class_{gsel}"
+        )
         class_df = dfp[dfp["Group"] == csel]
 
         st.markdown("<a name='class'></a>", unsafe_allow_html=True)
         st.subheader(f"{gsel} {csel}: Class Analysis")
-        # ... class analysis code ...
+        # --- class analysis code ---
 
         st.markdown("<a name='flagged'></a>", unsafe_allow_html=True)
         st.markdown("### 🚩 Flagged Students")
-        # ... flagged students code ...
+        # --- flagged students code ---
 
         st.markdown("<a name='hrtclusters'></a>", unsafe_allow_html=True)
         st.subheader(f"{gsel} {csel}: Cluster Analysis")
-        # ... cluster code ...
+        # --- cluster code ---
 
         if "Gender" in class_df.columns:
             st.markdown("<a name='hrtgender'></a>", unsafe_allow_html=True)
             st.subheader("Gender Split Analysis (Class-level)")
-            # ... gender split code ...
+            # --- gender split code ---
 
 
 # ----------------- Cross-Grade Compare -----------------
@@ -437,15 +449,16 @@ with tab_compare:
 
     st.markdown("<a name='crossheat'></a>", unsafe_allow_html=True)
     st.subheader("Cross-Grade Domain Heatmap")
-    # ... heatmap code ...
+    # --- heatmap code ---
 
     st.markdown("<a name='crossinsights'></a>", unsafe_allow_html=True)
     st.markdown("### 🔎 Insights (Cross-Grade Trends)")
-    # ... insights code ...
+    # --- insights code ---
 
     st.markdown("<a name='crossstrategies'></a>", unsafe_allow_html=True)
     st.markdown("### ✅ Actionable Strategies (Cross-Grade)")
-    # ... strategies code ...
+    # --- strategies code ---
+
 
 
 # ----------------- UI -----------------
