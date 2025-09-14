@@ -489,31 +489,32 @@ with tab_gl:
                 st.success("No additional strategies required.")
 
           # 🚩 Flagged students (only ≤40 bands)
-            st.markdown("### 🚩 Flagged Students")
-            
-            dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
-            
-            # A student is flagged if ANY domain ≤ 40
-            flagged = class_df[(class_df[dom_cols] <= 40).any(axis=1)]
-            
-            if not flagged.empty:
-                flagged_formatted = flagged.copy()
-                for col in dom_cols:
-                    flagged_formatted[col] = (
-                        flagged_formatted[col].round(1).astype(str) 
-                        + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
-                    )
-            
-                # Apply color coding
-                styled = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
-            
-                st.dataframe(
-                    styled,
-                    use_container_width=True,
-                    hide_index=True
+        # 🚩 Flagged students (only ≤40 bands)
+        st.markdown("### 🚩 Flagged Students")
+        
+        dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
+        
+        # A student is flagged if ANY domain ≤ 40
+        flagged = class_df[(class_df[dom_cols] <= 40).any(axis=1)]
+        
+        if not flagged.empty:
+            flagged_formatted = flagged.copy()
+            for col in dom_cols:
+                flagged_formatted[col] = (
+                    flagged_formatted[col].round(1).astype(str) 
+                    + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
                 )
-            else:
-                st.success("✅ No flagged students in this HR class.")
+        
+            # Apply color coding
+            styled = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
+        
+            st.dataframe(
+                styled,
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.success("✅ No flagged students in this HR class.")
 
 
         # Heatmap
