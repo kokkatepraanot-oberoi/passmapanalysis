@@ -145,52 +145,34 @@ def parse_cohort_sheet(src, sheet_name: Optional[str]) -> pd.DataFrame:
 
 def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
     try:
-        raw = pd.read_excel(src, sheet_name=sheet_name, header=None)
+        # Always start from row 4 (Excel row 5)
+        df = pd.read_excel(src, sheet_name=sheet_name, header=4)
     except Exception:
         return pd.DataFrame()
 
-    # Find header row
-    header_row = None
-    for r in range(min(20, len(raw))):
-        row_vals = [str(x).strip().lower() for x in raw.iloc[r].values]
-        if any("forename" in v or "group" in v for v in row_vals):
-            header_row = r
-            break
-    if header_row is None:
-        return pd.DataFrame()
+    # Clean headers
+    df.columns = [str(c).strip() for c in df.columns]
 
-    df = pd.read_excel(src, sheet_name=sheet_name, header=header_row)
-    df.columns = [str(c).strip().lower() for c in df.columns]
+    # Ensure "Group" is preserved
+    if "Group" not in df.columns:
+        # fallback: detect manually
+        for col in df.columns:
+            if "group" in col.lower():
+                df.rename(columns={col: "Group"}, inplace=True)
 
-    # If there are multiple "group-like" columns, prefer the one with values like "6.1", "7.2"
-    group_col = None
+    # Gender (if available in other PASS exports)
     for col in df.columns:
-        if any(key in col for key in ["group", "class", "form", "hr"]):
-            sample_vals = df[col].dropna().astype(str).head(20)
-            if any("." in v for v in sample_vals):  # looks like "6.1"
-                group_col = col
-                break
-            # Otherwise treat it as UPN
-            if all(v.startswith("B") for v in sample_vals):
-                df.rename(columns={col: "UPN"}, inplace=True)
-
-    if group_col:
-        df.rename(columns={group_col: "Group"}, inplace=True)
-    else:
-        df["Group"] = "All"
-
-    # Gender
-    for col in df.columns:
-        if "gender" in col:
+        if "gender" in col.lower():
             df.rename(columns={col: "Gender"}, inplace=True)
 
-    # Rename domains
+    # Standardize domain names
     for dom in PASS_DOMAINS:
         for col in df.columns:
-            if dom.lower() in col:
+            if dom.lower() in col.lower():
                 df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
 
     return df
+
 
 
 
