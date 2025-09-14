@@ -352,6 +352,100 @@ def cluster_scores(df: pd.DataFrame) -> pd.DataFrame:
             scores[cname] = vals.mean().round(1)
     return pd.Series(scores).rename_axis("Cluster").reset_index(name="Score")
 
+# ---------------- Sidebar Navigation ----------------
+st.sidebar.title("🔗 Quick Navigation")
+
+# ----------------- Tabs -----------------
+tab_gl, tab_hrt, tab_compare = st.tabs([
+    "🧑‍💼 GL View",
+    "🧑‍🏫 HRT View",
+    "📊 Cross-Grade Compare",
+])
+
+# ----------------- GL View -----------------
+with tab_gl:
+    # Sidebar menu for GL
+    with st.sidebar:
+        st.header("📊 GL Navigation")
+        st.markdown("[Cohort Analysis](#cohort)")
+        st.markdown("[Cluster Analysis](#clusters)")
+        st.markdown("[Domain Domination](#domination)")
+
+    gsel = st.selectbox("Select Grade (GL View)", list(PASS_FILES.keys()))
+    df = parsed_cohort.get(gsel, pd.DataFrame())
+
+    if not df.empty:
+        st.markdown("<a name='cohort'></a>", unsafe_allow_html=True)
+        st.subheader("Cohort Analysis")
+        # ... your cohort code here ...
+
+        st.markdown("<a name='clusters'></a>", unsafe_allow_html=True)
+        st.subheader("Cluster Analysis (Cohort)")
+        # ... your cluster code here ...
+
+    dfp = parsed_profiles.get(gsel, pd.DataFrame())
+    if not dfp.empty and "Group" in dfp.columns:
+        st.markdown("<a name='domination'></a>", unsafe_allow_html=True)
+        st.subheader("Domain Domination Across Homerooms")
+        # ... your domain domination code here ...
+
+
+# ----------------- HRT View -----------------
+with tab_hrt:
+    # Sidebar menu for HRT
+    with st.sidebar:
+        st.header("🧑‍🏫 HRT Navigation")
+        st.markdown("[Class Analysis](#class)")
+        st.markdown("[Flagged Students](#flagged)")
+        st.markdown("[Cluster Analysis](#hrtclusters)")
+        st.markdown("[Gender Split](#hrtgender)")
+
+    gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
+    dfp = parsed_profiles.get(gsel, pd.DataFrame())
+
+    if not dfp.empty:
+        classes = sorted(set(dfp["Group"].dropna().unique()))
+        csel = st.selectbox("Select HR class", classes)
+        class_df = dfp[dfp["Group"] == csel]
+
+        st.markdown("<a name='class'></a>", unsafe_allow_html=True)
+        st.subheader(f"{gsel} {csel}: Class Analysis")
+        # ... class analysis code ...
+
+        st.markdown("<a name='flagged'></a>", unsafe_allow_html=True)
+        st.markdown("### 🚩 Flagged Students")
+        # ... flagged students code ...
+
+        st.markdown("<a name='hrtclusters'></a>", unsafe_allow_html=True)
+        st.subheader(f"{gsel} {csel}: Cluster Analysis")
+        # ... cluster code ...
+
+        if "Gender" in class_df.columns:
+            st.markdown("<a name='hrtgender'></a>", unsafe_allow_html=True)
+            st.subheader("Gender Split Analysis (Class-level)")
+            # ... gender split code ...
+
+
+# ----------------- Cross-Grade Compare -----------------
+with tab_compare:
+    # Sidebar menu for Compare
+    with st.sidebar:
+        st.header("📊 Compare Navigation")
+        st.markdown("[Heatmap](#crossheat)")
+        st.markdown("[Insights](#crossinsights)")
+        st.markdown("[Strategies](#crossstrategies)")
+
+    st.markdown("<a name='crossheat'></a>", unsafe_allow_html=True)
+    st.subheader("Cross-Grade Domain Heatmap")
+    # ... heatmap code ...
+
+    st.markdown("<a name='crossinsights'></a>", unsafe_allow_html=True)
+    st.markdown("### 🔎 Insights (Cross-Grade Trends)")
+    # ... insights code ...
+
+    st.markdown("<a name='crossstrategies'></a>", unsafe_allow_html=True)
+    st.markdown("### ✅ Actionable Strategies (Cross-Grade)")
+    # ... strategies code ...
 
 
 # ----------------- UI -----------------
