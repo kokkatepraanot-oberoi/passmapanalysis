@@ -452,23 +452,24 @@ with tab_gl:
                 dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
                 st.markdown("### 🚩 Flagged Students (Low & below ≤40)")
             
+                # Only students with ANY domain <= 40
                 flagged = dfp[(dfp[dom_cols] <= 40).any(axis=1)]
             
                 if not flagged.empty:
                     flagged_formatted = flagged.copy()
             
-                    # Clean up Group display (6.1 instead of 6.100000)
+                    # Clean Group numbers like 6.1 instead of 6.100000
                     flagged_formatted["Group"] = (
                         flagged_formatted["Group"]
                         .astype(str)
                         .str.replace(".0", "", regex=False)
                     )
             
-                    # Format scores with descriptors
+                    # Format scores + descriptors for ONLY flagged subset
                     for col in dom_cols:
                         flagged_formatted[col] = (
-                            flagged[col].round(1).astype(str)
-                            + " (" + flagged[col].apply(pass_descriptor) + ")"
+                            flagged_formatted[col].round(1).astype(str)
+                            + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
                         )
             
                     # Apply SAME color coding as domain domination
