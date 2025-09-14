@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+pd.options.display.float_format = "{:.1f}".format
 
 st.set_page_config(page_title="OIS JVLR - MS PASS Dashboard", layout="wide")
 
