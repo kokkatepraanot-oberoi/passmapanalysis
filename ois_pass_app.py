@@ -189,12 +189,12 @@ def parse_cohort_sheet(src, sheet_name: str) -> pd.DataFrame:
         for col in df.columns:
             if dom.lower() in col.lower():
                 try:
-                    val = float(df[col].iloc[0])
+                    val = pd.to_numeric(df[col].iloc[0], errors="coerce")
                     data[DOMAIN_MAP[dom]] = val
                 except Exception:
                     pass
     out = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
-    out["Score"] = out["Score"].round(1)
+    out["Score"] = pd.to_numeric(out["Score"], errors="coerce").round(1)
     return out
 
 
@@ -220,11 +220,12 @@ def parse_individual_profiles(src, sheet_name: str) -> pd.DataFrame:
         if "gender" in col.lower():
             df.rename(columns={col: "Gender"}, inplace=True)
 
-    # Map domains
+    # Map domains + enforce numeric
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
                 df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
+                df[DOMAIN_MAP[dom]] = pd.to_numeric(df[DOMAIN_MAP[dom]], errors="coerce")
 
     return df
 
@@ -242,6 +243,12 @@ def parse_item_level(src, sheet_name: str) -> pd.DataFrame:
         for col in df.columns:
             if "category" in col.lower():
                 df.rename(columns={col: "Category"}, inplace=True)
+
+    # Enforce numeric for domain columns
+    for dom in PASS_DOMAINS:
+        for col in df.columns:
+            if dom.lower() in col.lower():
+                df[col] = pd.to_numeric(df[col], errors="coerce")
 
     return df
 
@@ -264,6 +271,7 @@ def load_all_pass_files(pass_files):
 
 # ----------------- Initialize -----------------
 parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
+
 
 
 # ----------------- Visualization + Analysis -----------------
