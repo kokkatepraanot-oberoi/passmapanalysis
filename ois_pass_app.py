@@ -1,9 +1,9 @@
 # ois_pass_app.py
-# Streamlit PASS Dashboard – Cohort, HR, Gender, Cluster-level analysis + Strategies
+# Streamlit PASS Dashboard – GL View, HRT View, Cross-Grade Compare
+# Includes gender split analysis at domain level, clusters, insights, and strategies
 
 import io
 from typing import Dict, Optional, List, Tuple
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="OIS PASS Dashboard", layout="wide")
 
+# --------- CONFIG ---------
 PASS_FILES = {
     "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
     "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
@@ -28,10 +29,13 @@ PASS_DOMAINS = [
     "Attitudes to attendance",
     "Response to curriculum demands",
 ]
+
 PASS_DOMAINS_NUM = [f"{i+1}. {d}" for i, d in enumerate(PASS_DOMAINS)]
 DOMAIN_MAP = dict(zip(PASS_DOMAINS, PASS_DOMAINS_NUM))
+
 THRESHOLDS = {"red": 60.0, "amber": 70.0}
 
+# Cluster groupings
 CLUSTERS = {
     "Self": ["2. Perceived learning capability", "3. Self-regard as a learner"],
     "Study": ["4. Preparedness for learning", "6. General work ethic", "7. Confidence in learning"],
@@ -43,6 +47,7 @@ CLUSTERS = {
     ],
 }
 
+# Domain strategies (expandable as needed)
 DOMAIN_STRATEGIES = {
     "1. Feelings about school": [
         "Rebuild belonging (circles, advisory games, peer shout-outs)",
@@ -51,50 +56,44 @@ DOMAIN_STRATEGIES = {
     ],
     "2. Perceived learning capability": [
         "Growth mindset interventions",
-        "Teacher feedback focused on effort/progress",
-        "Small wins / scaffolding for success",
+        "Feedback focused on effort/progress",
+        "Scaffolded small wins for confidence",
     ],
     "3. Self-regard as a learner": [
-        "Celebrate academic progress (not just high achievers)",
+        "Celebrate academic progress broadly",
         "Peer tutoring opportunities",
-        "Strengths-based feedback from teachers",
+        "Strengths-based teacher feedback",
     ],
     "4. Preparedness for learning": [
-        "Planner routines, visible goal trackers",
-        "‘Do Now’ tasks in class for structure",
+        "Planner routines and visible trackers",
+        "‘Do Now’ starter tasks",
         "Time management mini-lessons",
     ],
     "5. Attitudes to teachers": [
         "Positive calls/emails home",
-        "Advisory ‘Meet the Teacher’ sessions",
-        "Restorative practices, reconnection strategies",
+        "Advisory sessions to reconnect",
+        "Restorative practices",
     ],
     "6. General work ethic": [
-        "Weekly routines: planner checks, visible targets",
-        "Advisory SEL sessions on perseverance & resilience",
+        "Weekly planner checks",
+        "SEL sessions on perseverance",
         "Recognition for consistent effort",
     ],
     "7. Confidence in learning": [
         "Growth mindset assemblies",
-        "Celebrating risk-taking in learning",
-        "Peer support & ‘safe fail’ opportunities",
+        "Celebrate risk-taking in class",
+        "Safe-fail opportunities",
     ],
     "8. Attitudes to attendance": [
-        "Monitor attendance/tardies closely",
+        "Monitor attendance closely",
         "Early family contact",
-        "HR/class competitions for attendance",
+        "Class/HR competitions for attendance",
     ],
     "9. Response to curriculum demands": [
         "Audit workload with HoDs",
-        "Space out assessments",
-        "Scaffolding & differentiation for complex tasks",
+        "Space assessments across terms",
+        "Differentiate complex tasks",
     ],
-}
-
-SHEET_HINTS = {
-    "cohort": ["cohort analysis"],
-    "profiles": ["individual profiles", "student profiles"],
-    "items": ["item level analysis", "item-level analysis"],
 }
 
 # ----------------- Helpers -----------------
@@ -121,51 +120,50 @@ def choose_sheet(sheet_names: List[str], hints: List[str]) -> Optional[str]:
 
 # ----------------- Parsers -----------------
 def parse_cohort_sheet(src, sheet_name: Optional[str]) -> pd.DataFrame:
-    raw = pd.read_excel(src, sheet_name=sheet_name, header=None)
-    header_row = None
-    for r in range(min(15, len(raw))):
-        vals = [_clean(x) for x in raw.iloc[r].values]
-        if sum(1 for v in vals if v in PASS_DOMAINS) >= 5:
-            header_row = r
-            break
-    if header_row is not None and header_row + 1 < len(raw):
-        headers = [_clean(x) for x in raw.iloc[header_row].values]
-        scores = raw.iloc[header_row + 1].values
-        data = {}
-        for h, s in zip(headers, scores):
-            if h in PASS_DOMAINS:
-                try:
-                    data[h] = float(s)
-                except:
-                    pass
-        df = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
-        df["Domain"] = df["Domain"].map(DOMAIN_MAP)
-        return df
-    return pd.DataFrame(columns=["Domain", "Score"])
-
-def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
+    """Parse Cohort Analysis sheet (Grade-level domain scores)."""
     try:
-        # Always start from row 4 (Excel row 5)
         df = pd.read_excel(src, sheet_name=sheet_name, header=4)
     except Exception:
         return pd.DataFrame()
 
-    # Clean headers
+    df.columns = [str(c).strip() for c in df.columns]
+    data = {}
+    for dom in PASS_DOMAINS:
+        for col in df.columns:
+            if dom.lower() in col.lower():
+                try:
+                    val = float(df[col].iloc[0])
+                    data[DOMAIN_MAP[dom]] = val
+                except Exception:
+                    pass
+    out = pd.Series(data).rename_axis("Domain").reset_index(name="Score")
+    out["Score"] = out["Score"].round(1)
+    return out
+
+def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
+    """Parse Individual Profiles (student-level data)."""
+    try:
+        df = pd.read_excel(src, sheet_name=sheet_name, header=4)
+    except Exception:
+        return pd.DataFrame()
+
     df.columns = [str(c).strip() for c in df.columns]
 
-    # Ensure "Group" is preserved
+    # Ensure Group column
     if "Group" not in df.columns:
-        # fallback: detect manually
         for col in df.columns:
             if "group" in col.lower():
                 df.rename(columns={col: "Group"}, inplace=True)
 
-    # Gender (if available in other PASS exports)
+    if "Group" not in df.columns:
+        df["Group"] = "All"
+
+    # Gender
     for col in df.columns:
         if "gender" in col.lower():
             df.rename(columns={col: "Gender"}, inplace=True)
 
-    # Standardize domain names
+    # Map domains
     for dom in PASS_DOMAINS:
         for col in df.columns:
             if dom.lower() in col.lower():
@@ -174,30 +172,20 @@ def parse_individual_profiles(src, sheet_name: Optional[str]) -> pd.DataFrame:
     return df
 
 def parse_item_level(src, sheet_name: Optional[str]) -> pd.DataFrame:
+    """Parse Item Level Analysis (gender splits)."""
     try:
-        # Start from row 4 (Excel row 5), same as Individual Profiles
         df = pd.read_excel(src, sheet_name=sheet_name, header=4)
     except Exception:
         return pd.DataFrame()
 
-    # Clean headers
     df.columns = [str(c).strip() for c in df.columns]
 
-    # Ensure Category column exists
     if "Category" not in df.columns:
         for col in df.columns:
             if "category" in col.lower():
                 df.rename(columns={col: "Category"}, inplace=True)
 
-    # Rename domains (useful if PASS_DOMAINS map applies here too)
-    for dom in PASS_DOMAINS:
-        for col in df.columns:
-            if dom.lower() in col.lower():
-                df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
-
     return df
-
-
 
 # ----------------- Visualization + Analysis -----------------
 def color_for_score(x: float) -> str:
@@ -211,7 +199,7 @@ def color_for_score(x: float) -> str:
 
 def make_bar(df: pd.DataFrame, title: str):
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.bar(df["Domain"], df["Score"])
+    ax.bar(df["Domain"], df["Score"], color="skyblue")
     ax.set_title(title)
     ax.set_ylabel("Score")
     ax.set_ylim(0, 100)
@@ -220,9 +208,12 @@ def make_bar(df: pd.DataFrame, title: str):
 
 def make_gender_bar(df: pd.DataFrame, title: str):
     doms = [d for d in PASS_DOMAINS_NUM if d in df.columns]
-    boys = df[df["Category"] == "Boys"][doms].iloc[0]
-    girls = df[df["Category"] == "Girls"][doms].iloc[0]
-    overall = df[df["Category"] == "Overall"][doms].iloc[0]
+    if not doms:
+        st.warning("No domain-level gender data available.")
+        return
+    boys = df[df["Category"] == "Boys"][doms].mean()
+    girls = df[df["Category"] == "Girls"][doms].mean()
+    overall = df[df["Category"] == "Overall"][doms].mean()
     x = np.arange(len(doms))
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.bar(x - 0.25, boys, width=0.25, label="Boys")
@@ -250,12 +241,15 @@ def gender_insights(df: pd.DataFrame) -> List[str]:
         return insights
     doms = [d for d in PASS_DOMAINS_NUM if d in df.columns]
     for d in doms:
-        row = df.set_index("Category")[d]
-        if "Boys" in row and "Girls" in row:
-            gap = row["Boys"] - row["Girls"]
-            if abs(gap) >= 10:
-                who = "Boys" if gap < 0 else "Girls"
-                insights.append(f"- {who} weaker in {d} (gap {gap:+.1f})")
+        if d not in df.columns:
+            continue
+        boys = df[df["Category"] == "Boys"][d].mean()
+        girls = df[df["Category"] == "Girls"][d].mean()
+        if pd.notna(boys) and pd.notna(girls):
+            gap = boys - girls
+            if abs(gap) >= 5:
+                weaker = "Boys" if gap < 0 else "Girls"
+                insights.append(f"- {weaker} weaker in {d} (gap {gap:+.1f})")
     return insights
 
 def domain_strategies(df: pd.DataFrame):
@@ -271,7 +265,7 @@ def cluster_scores(df: pd.DataFrame) -> pd.DataFrame:
     for cname, doms in CLUSTERS.items():
         vals = df[df["Domain"].isin(doms)]["Score"]
         if not vals.empty:
-            scores[cname] = vals.mean()
+            scores[cname] = vals.mean().round(1)
     return pd.Series(scores).rename_axis("Cluster").reset_index(name="Score")
 
 # ----------------- Sidebar uploads -----------------
@@ -281,6 +275,12 @@ uploaded = {g: st.sidebar.file_uploader(f"{g} (.xlsx)", type=["xlsx"], key=f"u_{
 parsed_cohort: Dict[str, pd.DataFrame] = {}
 parsed_profiles: Dict[str, pd.DataFrame] = {}
 parsed_items: Dict[str, pd.DataFrame] = {}
+
+SHEET_HINTS = {
+    "cohort": ["cohort analysis"],
+    "profiles": ["individual profiles", "student profiles"],
+    "items": ["item level analysis", "item-level analysis"],
+}
 
 for grade in PASS_FILES:
     src = uploaded[grade]
@@ -321,6 +321,7 @@ with tab_gl:
     if not df.empty:
         st.subheader("Cohort Analysis")
         show = df.copy()
+        show["Score"] = show["Score"].round(1)
         show["Status"] = show["Score"].apply(lambda x: "🟥" if x < 60 else "🟧" if x < 70 else "🟩")
         st.dataframe(show, hide_index=True, use_container_width=True)
         make_bar(df, f"{gsel}: PASS Domains")
@@ -328,9 +329,9 @@ with tab_gl:
         strengths, concerns = format_insights(df)
         st.markdown("### 🔎 Insights (Cohort)")
         if strengths:
-            st.success("**Strengths**\\n" + "\\n".join(strengths))
+            st.success("**Strengths**\n" + "\n".join(strengths))
         if concerns:
-            st.warning("**Concerns**\\n" + "\\n".join(concerns))
+            st.warning("**Concerns**\n" + "\n".join(concerns))
 
         st.markdown("### ✅ Actionable Strategies")
         domain_strategies(df)
@@ -341,19 +342,29 @@ with tab_gl:
         make_bar(cdf.rename(columns={"Cluster": "Domain"}), f"{gsel}: Cluster Scores")
         top, bot = format_insights(cdf.rename(columns={"Cluster": "Domain"}))
         if top:
-            st.success("**Cluster Strengths**\\n" + "\\n".join(top))
+            st.success("**Cluster Strengths**\n" + "\n".join(top))
         if bot:
-            st.warning("**Cluster Concerns**\\n" + "\\n".join(bot))
+            st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
     dfi = parsed_items.get(gsel, pd.DataFrame())
     if not dfi.empty:
-        st.subheader("Gender Split Analysis")
-        view = dfi[dfi["Category"].isin(["Overall", "Boys", "Girls"])]
-        st.dataframe(view, use_container_width=True)
-        make_gender_bar(view, f"{gsel}: Gender Comparison")
-        insights = gender_insights(view)
-        if insights:
-            st.info("**Gender Gaps**\\n" + "\\n".join(insights))
+        st.subheader("Gender Split Analysis (Cohort)")
+        # Compute domain averages by gender
+        if "Category" in dfi.columns:
+            dom_means = {}
+            for dom in PASS_DOMAINS:
+                for col in dfi.columns:
+                    if dom.lower() in col.lower():
+                        dfi.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
+            doms = [d for d in PASS_DOMAINS_NUM if d in dfi.columns]
+            view = dfi[dfi["Category"].isin(["Overall", "Boys", "Girls"])]
+            gender_df = view.groupby("Category")[doms].mean().reset_index()
+            gender_df[doms] = gender_df[doms].round(1)
+            st.dataframe(gender_df, use_container_width=True)
+            make_gender_bar(gender_df, f"{gsel}: Gender Comparison (Domains)")
+            insights = gender_insights(gender_df)
+            if insights:
+                st.info("**Gender Gaps**\n" + "\n".join(insights))
 
 with tab_hrt:
     gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
@@ -361,12 +372,14 @@ with tab_hrt:
     if dfp.empty:
         st.warning("No profiles data uploaded for this grade.")
     else:
+        # Homeroom classes
         classes = sorted(set(dfp["Group"].dropna().unique()))
         csel = st.selectbox("Select HR class", classes)
         class_df = dfp[dfp["Group"] == csel]
         dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
         class_means = class_df[dom_cols].mean().reset_index()
         class_means.columns = ["Domain", "Score"]
+        class_means["Score"] = class_means["Score"].round(1)
 
         st.subheader(f"{gsel} {csel}: Class Analysis")
         st.dataframe(class_means, use_container_width=True)
@@ -374,13 +387,14 @@ with tab_hrt:
         strengths, concerns = format_insights(class_means)
         st.markdown("### 🔎 Insights (Class)")
         if strengths:
-            st.success("**Strengths**\\n" + "\\n".join(strengths))
+            st.success("**Strengths**\n" + "\n".join(strengths))
         if concerns:
-            st.warning("**Concerns**\\n" + "\\n".join(concerns))
+            st.warning("**Concerns**\n" + "\n".join(concerns))
 
         st.markdown("### ✅ Actionable Strategies")
         domain_strategies(class_means)
 
+        # Flagged students
         st.markdown("### 🚩 Flagged Students")
         class_df["# Weak Domains"] = (class_df[dom_cols] < 60).sum(axis=1)
         flagged = class_df[class_df["# Weak Domains"] >= 2]
@@ -392,30 +406,39 @@ with tab_hrt:
         else:
             st.success("No flagged students in this HR class.")
 
+        # Cluster analysis
         st.subheader(f"{gsel} {csel}: Cluster Analysis")
         cdf = cluster_scores(class_means.rename(columns={"Domain": "Domain"}))
         st.dataframe(cdf, use_container_width=True)
         make_bar(cdf.rename(columns={"Cluster": "Domain"}), f"{gsel} {csel}: Cluster Scores")
         top, bot = format_insights(cdf.rename(columns={"Cluster": "Domain"}))
         if top:
-            st.success("**Cluster Strengths**\\n" + "\\n".join(top))
+            st.success("**Cluster Strengths**\n" + "\n".join(top))
         if bot:
-            st.warning("**Cluster Concerns**\\n" + "\\n".join(bot))
+            st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
+        # Gender Split Analysis (per-HR if Gender column exists)
         if "Gender" in class_df.columns:
             st.subheader("Gender Split Analysis (Class-level)")
-            view = class_df.groupby("Gender")[dom_cols].mean().reset_index()
-            st.dataframe(view, use_container_width=True)
+            gender_df = class_df.groupby("Gender")[dom_cols].mean().reset_index()
+            gender_df[dom_cols] = gender_df[dom_cols].round(1)
+            st.dataframe(gender_df, use_container_width=True)
 
-    dfi = parsed_items.get(gsel, pd.DataFrame())
-    if not dfi.empty:
-        st.subheader("Gender Split Analysis (Grade-level)")
-        view = dfi[dfi["Category"].isin(["Overall", "Boys", "Girls"])]
-        st.dataframe(view, use_container_width=True)
-        make_gender_bar(view, f"{gsel}: Gender Comparison")
-        insights = gender_insights(view)
-        if insights:
-            st.info("**Gender Gaps**\\n" + "\\n".join(insights))
+            # Gender insights
+            melted = gender_df.melt(id_vars="Gender", value_vars=dom_cols, var_name="Domain", value_name="Score")
+            pivot = melted.pivot_table(index="Domain", columns="Gender", values="Score")
+            insights = []
+            if "Boys" in pivot.columns and "Girls" in pivot.columns:
+                for dom in dom_cols:
+                    boys = pivot.loc[dom, "Boys"] if "Boys" in pivot.columns else np.nan
+                    girls = pivot.loc[dom, "Girls"] if "Girls" in pivot.columns else np.nan
+                    if pd.notna(boys) and pd.notna(girls):
+                        gap = boys - girls
+                        if abs(gap) >= 5:
+                            weaker = "Boys" if gap < 0 else "Girls"
+                            insights.append(f"- {weaker} weaker in {dom} (gap {gap:+.1f})")
+            if insights:
+                st.info("**Gender Gaps**\n" + "\n".join(insights))
 
 with tab_compare:
     st.subheader("Cross-Grade Comparison (Cohort)")
@@ -428,16 +451,17 @@ with tab_compare:
             mats.append(ser.values)
             grades.append(g)
 
-        M = np.column_stack(mats) if mats else np.zeros((len(domains), 0))
-        fig, ax = plt.subplots()
-        im = ax.imshow(M, aspect="auto", vmin=0, vmax=100)
-        ax.set_yticks(range(len(domains)))
-        ax.set_yticklabels(domains)
-        ax.set_xticks(range(len(grades)))
-        ax.set_xticklabels(grades)
-        ax.set_title("PASS Domain Heatmap (by Grade)")
-        fig.colorbar(im, ax=ax)
-        st.pyplot(fig)
+        if mats:
+            M = np.column_stack(mats)
+            fig, ax = plt.subplots(figsize=(8, 6))
+            im = ax.imshow(M, aspect="auto", vmin=0, vmax=100, cmap="coolwarm")
+            ax.set_yticks(range(len(domains)))
+            ax.set_yticklabels(domains)
+            ax.set_xticks(range(len(grades)))
+            ax.set_xticklabels(grades)
+            ax.set_title("PASS Domain Heatmap (by Grade)")
+            fig.colorbar(im, ax=ax)
+            st.pyplot(fig)
 
         rows = []
         for g, df in by_grade.items():
@@ -445,6 +469,7 @@ with tab_compare:
             tmp["Grade"] = g
             rows.append(tmp)
         pivot = pd.concat(rows).pivot_table(index="Domain", columns="Grade", values="Score")
-        st.dataframe(pivot.reindex(PASS_DOMAINS_NUM), use_container_width=True)
+        pivot = pivot.reindex(PASS_DOMAINS_NUM)
+        st.dataframe(pivot.round(1), use_container_width=True)
     else:
         st.info("No cohort data parsed to compare across grades.")
