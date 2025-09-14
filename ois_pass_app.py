@@ -447,20 +447,38 @@ with tab_gl:
             styled = formatted.style.applymap(colorize)
             st.dataframe(styled, use_container_width=True)
 
-            # 🚩 Flagged Students (Low & below = ≤40) ---
-            st.markdown("### 🚩 Flagged Students (Low & below)")
+            # 🚩 Flagged Students
+            st.markdown("### 🚩 Flagged Students (Low & below ≤40)")
+            
+            dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
             flagged = dfp[(dfp[dom_cols] <= 40).any(axis=1)]
+            
             if not flagged.empty:
-                flagged_formatted = flagged.copy()
+                # numeric copy for coloring
+                numeric_only = flagged[["Forename", "Surname", "Group"] + dom_cols].copy()
+            
+                # formatted copy for display
+                formatted = flagged[["Forename", "Surname", "Group"] + dom_cols].copy()
                 for col in dom_cols:
-                    flagged_formatted[col] = (
-                        flagged_formatted[col].round(1).astype(str)
-                        + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
+                    formatted[col] = (
+                        flagged[col].round(1).astype(str)
+                        + " (" + flagged[col].apply(pass_descriptor) + ")"
                     )
-                styled_flagged = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
-                st.dataframe(styled_flagged, use_container_width=True, hide_index=True)
+            
+                # apply color using numeric version, but display formatted
+                styled = formatted.style.apply(
+                    lambda s: [
+                        color_for_score(val) if pd.notna(val) and str(val).replace(".", "", 1).isdigit()
+                        else ""
+                        for val in flagged[s.name]
+                    ],
+                    subset=dom_cols,
+                    axis=0
+                )
+                st.dataframe(styled, use_container_width=True, hide_index=True)
             else:
                 st.success("✅ No flagged students (Low or below) in this grade.")
+
 
 
 with tab_hrt:
