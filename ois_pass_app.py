@@ -374,6 +374,33 @@ with tab_gl:
         if bot:
             st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
+    # Domain domination across HRs
+    dfp = parsed_profiles.get(gsel, pd.DataFrame())
+    if not dfp.empty and "Group" in dfp.columns:
+        st.subheader("Domain Domination Across Homerooms")
+    
+        dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
+        hr_means = dfp.groupby("Group")[dom_cols].mean().round(1)
+    
+        st.dataframe(hr_means, use_container_width=True)
+    
+        # Heatmap
+        fig, ax = plt.subplots(figsize=(10, 6))
+        im = ax.imshow(hr_means.values, aspect="auto", cmap="coolwarm", vmin=0, vmax=100)
+        ax.set_xticks(range(len(hr_means.columns)))
+        ax.set_xticklabels(hr_means.columns, rotation=45, ha="right")
+        ax.set_yticks(range(len(hr_means.index)))
+        ax.set_yticklabels(hr_means.index)
+        fig.colorbar(im, ax=ax)
+        st.pyplot(fig)
+    
+        # Insights
+        st.markdown("### 🔎 HR Insights")
+        for hr in hr_means.index:
+            top_domain = hr_means.loc[hr].idxmax()
+            low_domain = hr_means.loc[hr].idxmin()
+            st.write(f"- {hr}: strongest in **{top_domain}**, weakest in **{low_domain}**.")
+
     dfi = parsed_items.get(gsel, pd.DataFrame())
     if not dfi.empty:
         st.subheader("Gender Split Analysis (Cohort)")
