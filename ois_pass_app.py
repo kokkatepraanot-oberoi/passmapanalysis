@@ -373,6 +373,7 @@ with tab_gl:
     gsel = st.selectbox("Select Grade (GL View)", list(PASS_FILES.keys()), key="gl_grade")
     df = parsed_cohort.get(gsel, pd.DataFrame())
     dfp = parsed_profiles.get(gsel, pd.DataFrame())
+
     if not df.empty:
         st.subheader("Cohort Analysis")
         show = df.copy()
@@ -381,7 +382,7 @@ with tab_gl:
         styled = show.style.applymap(descriptor_color, subset=["Descriptor"])
         st.dataframe(styled, hide_index=True, use_container_width=True)
 
-        # Donut chart
+        # --- Donut chart ---
         colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in df["Domain"]]
         fig, ax = plt.subplots(figsize=(4, 4))
         ax.pie(
@@ -408,164 +409,59 @@ with tab_gl:
         st.markdown("### ✅ Actionable Strategies")
         domain_strategies(df)
 
+        # --- Cluster Analysis ---
         st.subheader("Cluster Analysis (Cohort)")
-      
-        # Show cluster definitions
         st.caption("""
         **Cluster Definitions:**  
-        - **Self:** PASS 2 (Perceived Learning Capability), PASS 3 (Self-regard as a Learner)  
-        - **Study:** PASS 4 (Preparedness for Learning), PASS 6 (General Work Ethic), PASS 7 (Confidence in Learning)  
-        - **School:** PASS 1 (Feelings about School), PASS 5 (Attitudes to Teachers), PASS 8 (Attitudes to Attendance), PASS 9 (Response to Curriculum)
+        - **Self:** PASS 2, PASS 3  
+        - **Study:** PASS 4, PASS 6, PASS 7  
+        - **School:** PASS 1, PASS 5, PASS 8, PASS 9
         """)
-
         cdf = cluster_scores(df)
         cdf["Descriptor"] = cdf["Score"].apply(pass_descriptor)
         styled = cdf.style.applymap(descriptor_color, subset=["Descriptor"])
         st.dataframe(styled, use_container_width=True)
 
         make_bar(cdf.rename(columns={"Cluster": "Domain"}), f"{gsel}: Cluster Scores")
-        top, bot = format_insights(cdf.rename(columns={"Cluster": "Domain"}))
-        if top:
-            st.success("**Cluster Strengths**\n" + "\n".join(top))
-        if bot:
-            st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
-        # ---- Domain Domination Across Homerooms ----
-        dfp = parsed_profiles.get(gsel, pd.DataFrame())
+        # --- Domain Domination Across Homerooms ---
         if not dfp.empty and "Group" in dfp.columns:
             st.subheader("Domain Domination Across Homerooms")
-        
+
             dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
             hr_means = dfp.groupby("Group")[dom_cols].mean().round(1)
-        
-            # Format with descriptors like "73.7 (High)"
+
             formatted = hr_means.copy()
             for col in dom_cols:
                 formatted[col] = (
-                    hr_means[col].round(1).astype(str) 
+                    hr_means[col].round(1).astype(str)
                     + " (" + hr_means[col].apply(pass_descriptor) + ")"
                 )
-        
-            # Apply color coding to descriptor part
+
             def colorize(val):
-                # pull descriptor inside parentheses
                 if "(" in val:
                     desc = val.split("(")[-1].strip(")")
                     return descriptor_color(desc)
                 return ""
-        
+
             styled = formatted.style.applymap(colorize)
-        
             st.dataframe(styled, use_container_width=True)
-        
-            # ---- Insights ----
-            st.markdown("### 🔎 Insights (Across HRs)")
-            insights = []
-            for dom in dom_cols:
-                dom_scores = hr_means[dom].dropna()
-                if not dom_scores.empty:
-                    dom_range = dom_scores.max() - dom_scores.min()
-                    dom_avg = dom_scores.mean()
-                    if dom_range >= 15:
-                        insights.append(f"- **{dom}** shows wide variability (range {dom_range:.1f}).")
-                    if dom_avg < 65:
-                        insights.append(f"- **{dom}** is weak overall (avg {dom_avg:.1f}).")
-                    if dom_avg >= 75 and dom_range < 10:
-                        insights.append(f"- **{dom}** is a consistent strength (avg {dom_avg:.1f}).")
-        
-            if insights:
-                st.info("\n".join(insights))
-            else:
-                st.success("No major concerns detected across HRs.")
-        
-            # ---- Actionable Strategies ----
-            st.markdown("### ✅ Actionable Strategies (Across HRs)")
-            weak_domains = [dom for dom in dom_cols if hr_means[dom].mean() < 65]
-            if weak_domains:
-                for dom in weak_domains:
-                    st.markdown(f"**{dom}:**")
-                    for s in DOMAIN_STRATEGIES.get(dom, []):
-                        st.markdown(f"- {s}")
-            else:
-                st.success("No additional strategies required.")
 
-             # 🚩 Flagged Students (Low & below = ≤40)
-            if not dfp.empty:
-                dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
-                st.markdown("### 🚩 Flagged Students (Low & below)")
-    
-                flagged = dfp[(dfp[dom_cols] <= 40).any(axis=1)]
-    
-                if not flagged.empty:
-                    flagged_formatted = flagged.copy()
-                    for col in dom_cols:
-                        flagged_formatted[col] = (
-                            flagged_formatted[col].round(1).astype(str)
-                            + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
-                        )
-    
-                    styled_flagged = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
-                    st.dataframe(
-                        styled_flagged,
-                        use_container_width=True,
-                        hide_index=True
+            # 🚩 Flagged Students (Low & below = ≤40) ---
+            st.markdown("### 🚩 Flagged Students (Low & below)")
+            flagged = dfp[(dfp[dom_cols] <= 40).any(axis=1)]
+            if not flagged.empty:
+                flagged_formatted = flagged.copy()
+                for col in dom_cols:
+                    flagged_formatted[col] = (
+                        flagged_formatted[col].round(1).astype(str)
+                        + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
                     )
-                else:
-                    st.success("✅ No flagged students (Low or below) in this grade.")
+                styled_flagged = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
+                st.dataframe(styled_flagged, use_container_width=True, hide_index=True)
+            else:
+                st.success("✅ No flagged students (Low or below) in this grade.")
 
-
-        # Heatmap
-        fig, ax = plt.subplots(figsize=(7, 4))
-        im = ax.imshow(hr_means.values, aspect="auto", cmap="coolwarm", vmin=0, vmax=100)
-        ax.set_xticks(range(len(hr_means.columns)))
-        ax.set_xticklabels(hr_means.columns, rotation=45, ha="right")
-        ax.set_yticks(range(len(hr_means.index)))
-        ax.set_yticklabels(hr_means.index)
-        fig.colorbar(im, ax=ax)
-        st.pyplot(fig)
-    
-        # ---- Insights and Actionables for Domain Domination Heatmap ----
-        st.markdown("### 🔎 Insights (Across HRs)")
-        
-        insights = []
-        # Calculate variability (range across HRs per domain)
-        for dom in hr_means.columns:
-            dom_scores = hr_means[dom].dropna()
-            if not dom_scores.empty:
-                dom_range = dom_scores.max() - dom_scores.min()
-                dom_avg = dom_scores.mean()
-        
-                if dom_range >= 15:  # big spread between HRs
-                    insights.append(f"- **{dom}** shows wide variability across HRs (range {dom_range:.1f}).")
-                if dom_avg < 65:
-                    insights.append(f"- **{dom}** is a weaker domain overall (average {dom_avg:.1f}).")
-                if dom_avg >= 75 and dom_range < 10:
-                    insights.append(f"- **{dom}** is a consistent strength across HRs (average {dom_avg:.1f}).")
-        
-        if insights:
-            st.info("\n".join(insights))
-        else:
-            st.success("No major domain-level concerns detected across HRs.")
-        
-        st.markdown("### ✅ Actionable Strategies (Across HRs)")
-
-        weak_domains = []
-        for dom in hr_means.columns:
-            dom_scores = hr_means[dom].dropna()
-            if not dom_scores.empty:
-                dom_avg = dom_scores.mean()
-                if dom_avg < 65:  # weak threshold
-                    weak_domains.append(dom)
-        
-        if weak_domains:
-            for dom in weak_domains:
-                strategies = DOMAIN_STRATEGIES.get(dom, [])
-                if strategies:
-                    st.markdown(f"**{dom}:**")
-                    for s in strategies:
-                        st.markdown(f"- {s}")
-        else:
-            st.success("No domain-specific strategies required. Maintain current strengths.")
 
 
 with tab_hrt:
