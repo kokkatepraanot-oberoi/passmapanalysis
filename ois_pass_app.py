@@ -14,10 +14,11 @@ st.set_page_config(page_title="OIS PASS Dashboard", layout="wide")
 # --------- CONFIG ---------
 
 PASS_FILES = {
-    "Grade 6": "Grade_6_PASS_2025.csv",
-    "Grade 7": "Grade_7_PASS_2025.csv",
-    "Grade 8": "Grade_8_PASS_2025.csv",
+    "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
+    "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
+    "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
 }
+
 
 PASS_DOMAINS = [
     "Feelings about school",
