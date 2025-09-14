@@ -690,42 +690,57 @@ with tab_compare:
     by_grade = {g: d for g, d in parsed_cohort.items() if isinstance(d, pd.DataFrame) and not d.empty}
     if by_grade:
         domains = PASS_DOMAINS_NUM
-        mats, grades = [], []
-        for g, df in by_grade.items():
-            ser = df.set_index("Domain")["Score"].reindex(domains)
-            mats.append(ser.values)
-            grades.append(g)
-
-        if mats:
-            M = np.column_stack(mats)
-            fig, ax = plt.subplots(figsize=(6, 3))
-            im = ax.imshow(M, aspect="auto", vmin=0, vmax=100, cmap="coolwarm")
-            ax.set_yticks(range(len(domains)))
-            ax.set_yticklabels(domains)
-            ax.set_xticks(range(len(grades)))
-            ax.set_xticklabels(grades)
-            ax.set_title("PASS Domain Heatmap (by Grade)")
-            fig.colorbar(im, ax=ax)
-            st.pyplot(fig)
-
         rows = []
         for g, df in by_grade.items():
             tmp = df.copy()
             tmp["Grade"] = g
+            tmp["Descriptor"] = tmp["Score"].apply(pass_descriptor)
+            tmp["Score"] = tmp["Score"].round(1)
             rows.append(tmp)
-        pivot = pd.concat(rows).pivot_table(index="Domain", columns="Grade", values="Score")
-        pivot = pivot.reindex(PASS_DOMAINS_NUM)
-        st.dataframe(pivot.round(1), use_container_width=True)
-                # ---- Cross-Grade Insights + Actionables ----
-        st.markdown("### 🔎 Insights (Cross-Grade Trends)")
 
+        combined = pd.concat(rows)
+
+        # Pivot table: Domain x Grade
+        pivot = combined.pivot_table(index="Domain", columns="Grade", values="Score")
+        pivot = pivot.reindex(PASS_DOMAINS_NUM)
+
+        # Add descriptors per grade
+        pivot_desc = combined.pivot_table(index="Domain", columns="Grade", values="Descriptor")
+        pivot_combined = pivot.copy()
+        for col in pivot.columns:
+            pivot_combined[col] = pivot[col].round(1).astype(str) + " (" + pivot_desc[col] + ")"
+
+        # Apply color coding
+        def highlight_descriptor(val):
+            if "(" in val:
+                desc = val.split("(")[-1].strip(")")
+                return descriptor_color(desc)
+            return ""
+
+        styled = pivot_combined.style.applymap(highlight_descriptor)
+
+        st.dataframe(styled, use_container_width=True)
+
+        # Heatmap for visual
+        M = pivot.values
+        fig, ax = plt.subplots(figsize=(8, 6))
+        im = ax.imshow(M, aspect="auto", vmin=0, vmax=100, cmap="coolwarm")
+        ax.set_yticks(range(len(domains)))
+        ax.set_yticklabels(domains)
+        ax.set_xticks(range(len(pivot.columns)))
+        ax.set_xticklabels(pivot.columns)
+        ax.set_title("PASS Domain Heatmap (by Grade)")
+        fig.colorbar(im, ax=ax)
+        st.pyplot(fig)
+
+        # ---- Cross-Grade Insights + Actionables ----
+        st.markdown("### 🔎 Insights (Cross-Grade Trends)")
         insights = []
-        # Calculate trends per domain
         for dom in PASS_DOMAINS_NUM:
             if dom in pivot.index:
                 vals = pivot.loc[dom].dropna()
                 if len(vals) >= 2:
-                    trend = vals.iloc[-1] - vals.iloc[0]  # Grade8 - Grade6
+                    trend = vals.iloc[-1] - vals.iloc[0]
                     if trend <= -5:
                         insights.append(f"- **{dom}** declines across grades (drop {trend:.1f})")
                     elif trend >= 5:
@@ -736,7 +751,6 @@ with tab_compare:
         else:
             st.success("No major cross-grade declines detected.")
 
-        # Actionable Strategies
         st.markdown("### ✅ Actionable Strategies (Cross-Grade)")
         st.markdown(
             """
