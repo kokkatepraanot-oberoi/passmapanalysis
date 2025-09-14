@@ -319,6 +319,7 @@ def format_insights(df: pd.DataFrame) -> Tuple[List[str], List[str]]:
     concerns = [f"- {r.Domain} ({r.Score:.1f})" for r in bot2.itertuples()]
     return strengths, concerns
 
+
 def gender_insights(df: pd.DataFrame) -> List[str]:
     insights = []
     if df.empty:
