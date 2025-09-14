@@ -175,7 +175,7 @@ PASS_FILES = {
     "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
 }
 
-# ----------------- Parsers (Excel-based) -----------------
+# ----------------- Parsers -----------------
 def parse_cohort_sheet(src, sheet_name: str) -> pd.DataFrame:
     """Parse Cohort Analysis sheet (Grade-level domain scores)."""
     try:
@@ -261,7 +261,10 @@ def load_all_pass_files(pass_files):
 
     return parsed_profiles, parsed_cohort, parsed_items
 
+
+# ----------------- Initialize -----------------
 parsed_profiles, parsed_cohort, parsed_items = load_all_pass_files(PASS_FILES)
+
 
 # ----------------- Visualization + Analysis -----------------
 def color_for_score(x: float) -> str:
