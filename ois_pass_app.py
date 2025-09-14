@@ -417,16 +417,26 @@ with tab_gl:
         else:
             st.success("No major domain-level concerns detected across HRs.")
         
-        # Actionables
         st.markdown("### ✅ Actionable Strategies (Across HRs)")
-        st.markdown(
-            """
-        - **Preparedness for learning & General work ethic** → reinforce routines (planners, peer accountability, structured check-ins).  
-        - **Attitudes to teachers** → relational focus: student voice surveys, restorative circles, positive reinforcement.  
-        - **Weaker HRs** → GLs to coordinate with specific HRTs for class-targeted interventions.  
-        - **Stronger HRs** → share practices at HRT meetings so successful strategies cascade across the grade.  
-        """
-        )
+
+        weak_domains = []
+        for dom in hr_means.columns:
+            dom_scores = hr_means[dom].dropna()
+            if not dom_scores.empty:
+                dom_avg = dom_scores.mean()
+                if dom_avg < 65:  # weak threshold
+                    weak_domains.append(dom)
+        
+        if weak_domains:
+            for dom in weak_domains:
+                strategies = DOMAIN_STRATEGIES.get(dom, [])
+                if strategies:
+                    st.markdown(f"**{dom}:**")
+                    for s in strategies:
+                        st.markdown(f"- {s}")
+        else:
+            st.success("No domain-specific strategies required. Maintain current strengths.")
+
 
 with tab_hrt:
     gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
@@ -467,8 +477,21 @@ with tab_hrt:
         if concerns:
             st.warning("**Concerns**\n" + "\n".join(concerns))
 
-        st.markdown("### ✅ Actionable Strategies")
-        domain_strategies(class_means)
+        st.markdown("### ✅ Actionable Strategies (Class)")
+        weak_domains = []
+        for _, row in class_means.iterrows():
+            if row["Score"] < 65:
+                weak_domains.append(row["Domain"])
+        
+        if weak_domains:
+            for dom in weak_domains:
+                strategies = DOMAIN_STRATEGIES.get(dom, [])
+                if strategies:
+                    st.markdown(f"**{dom}:**")
+                    for s in strategies:
+                        st.markdown(f"- {s}")
+        else:
+            st.success("No domain-specific strategies required. Maintain current strengths.")
 
         # Flagged students
         st.markdown("### 🚩 Flagged Students")
