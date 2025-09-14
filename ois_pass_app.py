@@ -282,7 +282,7 @@ def color_for_score(x: float) -> str:
     return "background-color: #d4edda"
 
 def make_bar(df: pd.DataFrame, title: str):
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(6, 3))
     ax.bar(df["Domain"], df["Score"], color="skyblue")
     ax.set_title(title)
     ax.set_ylabel("Score")
@@ -376,7 +376,7 @@ with tab_gl:
 
         # Donut chart
         colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in df["Domain"]]
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, ax = plt.subplots(figsize=(4, 4))
         ax.pie(
             df["Score"],
             labels=df["Domain"],
@@ -434,7 +434,7 @@ with tab_gl:
         st.dataframe(hr_means, use_container_width=True)
     
         # Heatmap
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(7, 4))
         im = ax.imshow(hr_means.values, aspect="auto", cmap="coolwarm", vmin=0, vmax=100)
         ax.set_xticks(range(len(hr_means.columns)))
         ax.set_xticklabels(hr_means.columns, rotation=45, ha="right")
@@ -517,7 +517,7 @@ with tab_hrt:
 
         # Donut chart
         colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in class_means["Domain"]]
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, ax = plt.subplots(figsize=(4, 4))
         ax.pie(
             class_means["Score"],
             labels=class_means["Domain"],
