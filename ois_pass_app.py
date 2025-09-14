@@ -428,21 +428,6 @@ with tab_gl:
         """
         )
 
-
-    dfi = parsed_items.get(gsel, pd.DataFrame())
-    if not dfi.empty:
-        st.subheader("Gender Split Analysis (Cohort)")
-        if "Category" in dfi.columns:
-            doms = [d for d in PASS_DOMAINS_NUM if d in dfi.columns]
-            view = dfi[dfi["Category"].isin(["Overall", "Boys", "Girls"])]
-            gender_df = view.groupby("Category")[doms].mean().reset_index()
-            gender_df[doms] = gender_df[doms].round(1)
-            st.dataframe(gender_df, use_container_width=True)
-            make_gender_bar(gender_df, f"{gsel}: Gender Comparison (Domains)")
-            insights = gender_insights(gender_df)
-            if insights:
-                st.info("**Gender Gaps**\n" + "\n".join(insights))
-
 with tab_hrt:
     gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()))
     dfp = parsed_profiles.get(gsel, pd.DataFrame())
