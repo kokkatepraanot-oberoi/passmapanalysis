@@ -374,8 +374,6 @@ with tab_gl:
         styled = show.style.applymap(descriptor_color, subset=["Descriptor"])
         st.dataframe(styled, hide_index=True, use_container_width=True)
 
-        st.dataframe(show, hide_index=True, use_container_width=True)
-
         # Donut chart
         colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in df["Domain"]]
         fig, ax = plt.subplots(figsize=(6, 6))
