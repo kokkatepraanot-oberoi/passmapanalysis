@@ -607,27 +607,6 @@ with tab_hrt:
             st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
 
-        # ✅ Cluster Analysis
-        st.subheader(f"{gsel} {csel}: Cluster Analysis")
-        st.caption("""
-        **Cluster Definitions:**  
-        - **Self:** PASS 2 (Perceived Learning Capability), PASS 3 (Self-regard as a Learner)  
-        - **Study:** PASS 4 (Preparedness for Learning), PASS 6 (General Work Ethic), PASS 7 (Confidence in Learning)  
-        - **School:** PASS 1 (Feelings about School), PASS 5 (Attitudes to Teachers), PASS 8 (Attitudes to Attendance), PASS 9 (Response to Curriculum)
-        """)
-        cdf = cluster_scores(class_means.rename(columns={"Domain": "Domain"}))
-        cdf["Descriptor"] = cdf["Score"].apply(pass_descriptor)
-        styled = cdf.style.applymap(descriptor_color, subset=["Descriptor"])
-        st.dataframe(styled, use_container_width=True)
-
-        make_bar(cdf.rename(columns={"Cluster": "Domain"}), f"{gsel} {csel}: Cluster Scores")
-        top, bot = format_insights(cdf.rename(columns={"Cluster": "Domain"}))
-        if top:
-            st.success("**Cluster Strengths**\n" + "\n".join(top))
-        if bot:
-            st.warning("**Cluster Concerns**\n" + "\n".join(bot))
-
-
 with tab_compare:
     st.subheader("Cross-Grade Comparison (Cohort)")
     by_grade = {g: d for g, d in parsed_cohort.items() if isinstance(d, pd.DataFrame) and not d.empty}
