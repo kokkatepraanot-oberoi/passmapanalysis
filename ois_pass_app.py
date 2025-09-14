@@ -488,33 +488,22 @@ with tab_gl:
             else:
                 st.success("No additional strategies required.")
 
-          # 🚩 Flagged students (only ≤40 bands)
-        # 🚩 Flagged students (only ≤40 bands)
-        st.markdown("### 🚩 Flagged Students")
-        
-        dom_cols = [d for d in PASS_DOMAINS_NUM if d in class_df.columns]
-        
-        # A student is flagged if ANY domain ≤ 40
-        flagged = class_df[(class_df[dom_cols] <= 40).any(axis=1)]
-        
-        if not flagged.empty:
-            flagged_formatted = flagged.copy()
-            for col in dom_cols:
-                flagged_formatted[col] = (
-                    flagged_formatted[col].round(1).astype(str) 
-                    + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
-                )
-        
-            # Apply color coding
-            styled = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
-        
-            st.dataframe(
-                styled,
-                use_container_width=True,
-                hide_index=True
-            )
-        else:
-            st.success("✅ No flagged students in this HR class.")
+            # 🚩 Flagged students (≤40 bands only)
+            st.markdown("### 🚩 Flagged Students (Whole Grade)")
+            flagged = dfp[(dfp[dom_cols] <= 40).any(axis=1)]
+    
+            if not flagged.empty:
+                flagged_formatted = flagged.copy()
+                for col in dom_cols:
+                    flagged_formatted[col] = (
+                        flagged_formatted[col].round(1).astype(str) 
+                        + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
+                    )
+    
+                styled = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
+                st.dataframe(styled, use_container_width=True, hide_index=True)
+            else:
+                st.success("✅ No flagged students in this grade.")
 
 
         # Heatmap
@@ -637,37 +626,7 @@ with tab_hrt:
         else:
             st.success("No domain-specific strategies required. Maintain current strengths.")
 
-        # 🚩 Flagged students
-        st.markdown("### 🚩 Flagged Students")
         
-        class_df["# Weak Domains"] = (class_df[dom_cols] < 60).sum(axis=1)
-        flagged = class_df[class_df["# Weak Domains"] >= 2]
-        
-        if not flagged.empty:
-            flagged_formatted = flagged.copy()
-        
-            for col in dom_cols:
-                flagged_formatted[col] = (
-                    flagged_formatted[col].round(1).astype(str)
-                    + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
-                )
-        
-            # Style with background color for descriptors
-            def highlight_descriptor(val):
-                if "(" in val:
-                    desc = val.split("(")[-1].strip(")")
-                    return descriptor_color(desc)
-                return ""
-        
-            styled = flagged_formatted.style.applymap(highlight_descriptor, subset=dom_cols)
-        
-            st.dataframe(
-                styled,
-                use_container_width=True
-            )
-        else:
-            st.success("No flagged students in this HR class.")
-
         
         # Cluster analysis
         st.subheader(f"{gsel} {csel}: Cluster Analysis")
