@@ -130,6 +130,42 @@ def choose_sheet(sheet_names: List[str], hints: List[str]) -> Optional[str]:
             return name
     return sheet_names[0] if sheet_names else None
 
+def pass_descriptor(score: float) -> str:
+    if score >= 91:
+        return "Very High"
+    elif score >= 81:
+        return "Very High"
+    elif score >= 71:
+        return "High"
+    elif score >= 61:
+        return "Secure"
+    elif score >= 51:
+        return "Secure"
+    elif score >= 41:
+        return "Average"
+    elif score >= 31:
+        return "Low"
+    elif score >= 21:
+        return "Cause for Concern"
+    elif score >= 7:
+        return "Vulnerable"
+    else:
+        return "Critical"
+
+# Styling for descriptors
+def descriptor_color(val):
+    mapping = {
+        "Very High": "background-color: #006400; color: white",
+        "High": "background-color: #228B22; color: white",
+        "Secure": "background-color: #ADFF2F; color: black",
+        "Average": "background-color: #FFD700; color: black",
+        "Low": "background-color: #FFA500; color: black",
+        "Cause for Concern": "background-color: #FF4500; color: white",
+        "Vulnerable": "background-color: #DC143C; color: white",
+        "Critical": "background-color: #8B0000; color: white",
+    }
+    return mapping.get(val, "")
+    
 # ----------------- Parsers -----------------
 def parse_cohort_sheet(src, sheet_name: Optional[str]) -> pd.DataFrame:
     """Parse Cohort Analysis sheet (Grade-level domain scores)."""
@@ -334,7 +370,10 @@ with tab_gl:
         st.subheader("Cohort Analysis")
         show = df.copy()
         show["Score"] = show["Score"].round(1)
-        show["Status"] = show["Score"].apply(lambda x: "🟥" if x < 60 else "🟧" if x < 70 else "🟩")
+        show["Descriptor"] = show["Score"].apply(pass_descriptor)
+        styled = show.style.applymap(descriptor_color, subset=["Descriptor"])
+        st.dataframe(styled, hide_index=True, use_container_width=True)
+
         st.dataframe(show, hide_index=True, use_container_width=True)
 
         # Donut chart
@@ -366,7 +405,10 @@ with tab_gl:
 
         st.subheader("Cluster Analysis (Cohort)")
         cdf = cluster_scores(df)
-        st.dataframe(cdf, use_container_width=True)
+        cdf["Descriptor"] = cdf["Score"].apply(pass_descriptor)
+        styled = cdf.style.applymap(descriptor_color, subset=["Descriptor"])
+        st.dataframe(styled, use_container_width=True)
+
         make_bar(cdf.rename(columns={"Cluster": "Domain"}), f"{gsel}: Cluster Scores")
         top, bot = format_insights(cdf.rename(columns={"Cluster": "Domain"}))
         if top:
@@ -451,6 +493,10 @@ with tab_hrt:
         class_means = class_df[dom_cols].mean().reset_index()
         class_means.columns = ["Domain", "Score"]
         class_means["Score"] = class_means["Score"].round(1)
+        class_means["Descriptor"] = class_means["Score"].apply(pass_descriptor)
+        styled = class_means.style.applymap(descriptor_color, subset=["Descriptor"])
+        st.dataframe(styled, use_container_width=True)
+
 
         st.subheader(f"{gsel} {csel}: Class Analysis")
         st.dataframe(class_means, use_container_width=True)
@@ -493,22 +539,39 @@ with tab_hrt:
         else:
             st.success("No domain-specific strategies required. Maintain current strengths.")
 
-        # Flagged students
+        # 🚩 Flagged students
         st.markdown("### 🚩 Flagged Students")
+        
+        # Add weak domains count
         class_df["# Weak Domains"] = (class_df[dom_cols] < 60).sum(axis=1)
+        
+        # Identify flagged students
         flagged = class_df[class_df["# Weak Domains"] >= 2]
+        
         if not flagged.empty:
-            styled = flagged[["Forename", "Surname", "Group", "# Weak Domains"] + dom_cols].style.applymap(
-                color_for_score, subset=dom_cols
+            # Format scores with descriptor
+            flagged_formatted = flagged.copy()
+            for col in dom_cols:
+                flagged_formatted[col] = (
+                    flagged_formatted[col].round(1).astype(str) 
+                    + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
+                )
+        
+            st.dataframe(
+                flagged_formatted[["Forename", "Surname", "Group", "# Weak Domains"] + dom_cols],
+                use_container_width=True
             )
-            st.dataframe(styled, use_container_width=True)
         else:
             st.success("No flagged students in this HR class.")
+
 
         # Cluster analysis
         st.subheader(f"{gsel} {csel}: Cluster Analysis")
         cdf = cluster_scores(class_means.rename(columns={"Domain": "Domain"}))
-        st.dataframe(cdf, use_container_width=True)
+        cdf["Descriptor"] = cdf["Score"].apply(pass_descriptor)
+        styled = cdf.style.applymap(descriptor_color, subset=["Descriptor"])
+        st.dataframe(styled, use_container_width=True)
+
         make_bar(cdf.rename(columns={"Cluster": "Domain"}), f"{gsel} {csel}: Cluster Scores")
         top, bot = format_insights(cdf.rename(columns={"Cluster": "Domain"}))
         if top:
