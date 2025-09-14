@@ -488,7 +488,48 @@ with tab_gl:
             else:
                 st.success("No additional strategies required.")
 
-    
+            # 🚩 Flagged Students (GL view, across all HRs)
+            dfp = parsed_profiles.get(gsel, pd.DataFrame())
+            if not dfp.empty:
+                st.subheader("🚩 Flagged Students (Grade-wide)")
+        
+                dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
+                dfp["# Weak Domains"] = (dfp[dom_cols] < 60).sum(axis=1)
+        
+                flagged = dfp[dfp["# Weak Domains"] >= 2]
+                if not flagged.empty:
+                    flagged_formatted = flagged.copy()
+                    for col in dom_cols:
+                        flagged_formatted[col] = (
+                            flagged_formatted[col].round(1).astype(str) 
+                            + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
+                        )
+        
+                    # Apply color coding to descriptors
+                    def highlight_descriptor(val):
+                        if "(" in val:
+                            desc = val.split("(")[-1].strip(")")
+                            return descriptor_color(desc)
+                        return ""
+        
+                    styled = flagged_formatted[
+                        ["Forename", "Surname", "Group", "# Weak Domains"] + dom_cols
+                    ].style.applymap(highlight_descriptor, subset=dom_cols)
+        
+                    st.dataframe(styled, use_container_width=True)
+                    
+                    # Add insight text
+                    st.markdown("### 🔎 Insights (Flagged Students)")
+                    st.info(
+                        "- Students here have 2+ domains below 60.\n"
+                        "- Each row shows exact weak domains with descriptors.\n"
+                        "- Color coding aligns with PASS descriptors (green = strong, red = weak).\n"
+                        "- Use this to plan **targeted interventions** at grade level."
+                    )
+        
+                else:
+                    st.success("No flagged students in this grade cohort.")
+
         # Heatmap
         fig, ax = plt.subplots(figsize=(7, 4))
         im = ax.imshow(hr_means.values, aspect="auto", cmap="coolwarm", vmin=0, vmax=100)
