@@ -338,21 +338,6 @@ with tab_gl:
         st.dataframe(show, hide_index=True, use_container_width=True)
         make_bar(df, f"{gsel}: PASS Domains")
 
-        # Donut chart for GL view
-        colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in means["Domain"]]
-        fig, ax = plt.subplots(figsize=(6, 6))
-        ax.pie(
-            means["Score"],
-            labels=means["Domain"],
-            autopct="%.1f%%",
-            startangle=90,
-            counterclock=False,
-            colors=colors,
-            wedgeprops=dict(width=0.4)
-        )
-        ax.set_title(f"{gsel}: Domain Distribution (Cohort)")
-        st.pyplot(fig)
-
         strengths, concerns = format_insights(df)
         st.markdown("### 🔎 Insights (Cohort)")
         if strengths:
@@ -410,21 +395,6 @@ with tab_hrt:
 
         st.subheader(f"{gsel} {csel}: Class Analysis")
         st.dataframe(class_means, use_container_width=True)
-
-        # Donut chart for HRT view
-        colors = [DOMAIN_COLORS.get(dom, "#999999") for dom in class_means["Domain"]]
-        fig, ax = plt.subplots(figsize=(6, 6))
-        ax.pie(
-            class_means["Score"],
-            labels=class_means["Domain"],
-            autopct="%.1f%%",
-            startangle=90,
-            counterclock=False,
-            colors=colors,
-            wedgeprops=dict(width=0.4)
-        )
-        ax.set_title(f"{gsel} {csel}: Domain Distribution (Class)")
-        st.pyplot(fig)
 
         strengths, concerns = format_insights(class_means)
         st.markdown("### 🔎 Insights (Class)")
