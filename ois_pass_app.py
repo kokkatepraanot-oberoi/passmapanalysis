@@ -541,44 +541,51 @@ with tab_hrt:
         else:
             st.success("No domain-specific strategies required. Maintain current strengths.")
 
-        # 🚩 Flagged Students (≥2 weak domains <60)
-        st.markdown("### 🚩 Flagged Students (≥2 weak domains <60)")
-        flagged = class_df.copy()
-        flagged["# Weak Domains"] = (flagged[dom_cols] < 60).sum(axis=1)
-        flagged = flagged[flagged["# Weak Domains"] >= 2]
-
-        if not flagged.empty:
-            flagged_formatted = flagged.copy()
-
-            # Clean Group numbers
-            flagged_formatted["Group"] = (
-                flagged_formatted["Group"].astype(str).str.replace(".0", "", regex=False)
-            )
-
-            # Add descriptors
+        # 🚩 Flagged Students (Low & below ≤40)
+        if not dfp.empty:
+            st.markdown("### 🚩 Flagged Students (Low & below ≤40)")
+        
+            dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
+        
+            # Convert only domain columns to numeric (ignore text cols like Forename, Surname, Group)
+            dfp_num = dfp.copy()
             for col in dom_cols:
-                flagged_formatted[col] = (
-                    flagged_formatted[col].round(1).astype(str)
-                    + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
+                dfp_num[col] = pd.to_numeric(dfp_num[col], errors="coerce")
+        
+            # ✅ Only students with ANY domain <= 40
+            flagged = dfp_num[dfp_num[dom_cols].le(40).any(axis=1)]
+        
+            if not flagged.empty:
+                flagged_formatted = flagged.copy()
+        
+                # Clean Group numbers (6.1 not 6.100000)
+                flagged_formatted["Group"] = (
+                    flagged_formatted["Group"].astype(str).str.replace(".0", "", regex=False)
                 )
+        
+                # Format scores with descriptors
+                for col in dom_cols:
+                    flagged_formatted[col] = (
+                        flagged_formatted[col].round(1).astype(str)
+                        + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
+                    )
+        
+                # Apply descriptor-based color coding
+                def colorize(val):
+                    if "(" in str(val):
+                        desc = val.split("(")[-1].strip(")")
+                        return descriptor_color(desc)
+                    return ""
+        
+                styled_flagged = flagged_formatted[
+                    ["Forename", "Surname", "Group"] + dom_cols
+                ].style.applymap(colorize, subset=dom_cols)
+        
+                st.dataframe(styled_flagged, use_container_width=True, hide_index=True)
+        
+            else:
+                st.success("✅ No flagged students (Low or below) in this grade.")
 
-            def colorize(val):
-                if "(" in str(val):
-                    desc = val.split("(")[-1].strip(")")
-                    return descriptor_color(desc)
-                return ""
-
-            styled_flagged = flagged_formatted[
-                ["Forename", "Surname", "Group", "# Weak Domains"] + dom_cols
-            ].style.applymap(colorize, subset=dom_cols)
-
-            st.dataframe(
-                styled_flagged,
-                use_container_width=True,
-                hide_index=True
-            )
-        else:
-            st.success("✅ No flagged students in this HR class.")
 
         # ✅ Cluster Analysis
         st.subheader(f"{gsel} {csel}: Cluster Analysis")
