@@ -488,22 +488,29 @@ with tab_gl:
             else:
                 st.success("No additional strategies required.")
 
-            # 🚩 Flagged students (≤40 bands only)
-            st.markdown("### 🚩 Flagged Students (Whole Grade)")
-            flagged = dfp[(dfp[dom_cols] <= 40).any(axis=1)]
+             # 🚩 Flagged Students (Low & below = ≤40)
+            if not dfp.empty:
+                dom_cols = [d for d in PASS_DOMAINS_NUM if d in dfp.columns]
+                st.markdown("### 🚩 Flagged Students (Low & below)")
     
-            if not flagged.empty:
-                flagged_formatted = flagged.copy()
-                for col in dom_cols:
-                    flagged_formatted[col] = (
-                        flagged_formatted[col].round(1).astype(str) 
-                        + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
+                flagged = dfp[(dfp[dom_cols] <= 40).any(axis=1)]
+    
+                if not flagged.empty:
+                    flagged_formatted = flagged.copy()
+                    for col in dom_cols:
+                        flagged_formatted[col] = (
+                            flagged_formatted[col].round(1).astype(str)
+                            + " (" + flagged_formatted[col].apply(pass_descriptor) + ")"
+                        )
+    
+                    styled_flagged = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
+                    st.dataframe(
+                        styled_flagged,
+                        use_container_width=True,
+                        hide_index=True
                     )
-    
-                styled = flagged_formatted.style.applymap(color_for_score, subset=dom_cols)
-                st.dataframe(styled, use_container_width=True, hide_index=True)
-            else:
-                st.success("✅ No flagged students in this grade.")
+                else:
+                    st.success("✅ No flagged students (Low or below) in this grade.")
 
 
         # Heatmap
