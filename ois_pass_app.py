@@ -754,12 +754,12 @@ with tab_compare:
         st.markdown("### ✅ Actionable Strategies (Cross-Grade)")
         st.markdown(
             """
-- **Curriculum Demands** → Study skills workshops, scaffolded assignments, targeted Grade 8 support.  
-- **Work Ethic & Preparedness** → Structured routines (planners, peer accountability), goal-setting at transitions.  
-- **Teacher–Student Relationships** → 1:1 check-ins, positive calls home, teacher PD on relational strategies.  
-- **Grade 6** → Maintain motivation, monitor flagged students.  
-- **Grade 7** → Sustain engagement with collaborative, project-based learning.  
-- **Grade 8** → Focus on time management, mentoring, and restorative dialogue around teacher relationships.  
+            - **Curriculum Demands** → Study skills workshops, scaffolded assignments, targeted Grade 8 support.  
+            - **Work Ethic & Preparedness** → Structured routines (planners, peer accountability), goal-setting at transitions.  
+            - **Teacher–Student Relationships** → 1:1 check-ins, positive calls home, teacher PD on relational strategies.  
+            - **Grade 6** → Maintain motivation, monitor flagged students.  
+            - **Grade 7** → Sustain engagement with collaborative, project-based learning.  
+            - **Grade 8** → Focus on time management, mentoring, and restorative dialogue around teacher relationships.  
             """
         )
 
