@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 pd.options.display.float_format = "{:.1f}".format
 
-st.set_page_config(page_title="OIS JVLR - MS PASS Dashboard", layout="wide")
+st.set_page_config(page_title="OIS JVLR - Secondary PASS Dashboard", layout="wide")
 
 # --------- CONFIG ---------
 
