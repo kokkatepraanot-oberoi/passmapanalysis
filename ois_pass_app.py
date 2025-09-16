@@ -624,8 +624,13 @@ with tab_hrt:
             st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
 
+import io
+import pandas as pd
+import matplotlib.pyplot as plt
+
 with tab_compare:
     st.subheader("Cross-Grade Comparison (Cohort)")
+
     by_grade = {g: d for g, d in parsed_cohort.items() if isinstance(d, pd.DataFrame) and not d.empty}
     if by_grade:
         domains = PASS_DOMAINS_NUM
@@ -758,25 +763,56 @@ with tab_compare:
         else:
             st.success("No domain-specific strategies required. Maintain current strengths.")
 
-        # ---- Download Flagged Students ----
-        if "Concern Level" in combined.columns:
-            flagged_df = combined[combined["Concern Level"].isin(["Cause for Concern", "Vulnerable"])]
-            flagged_df = flagged_df.sort_values(by=["Grade", "Homeroom", "Student Name"])
-        
-            st.markdown("### 📥 Download Flagged Students for Check-ins")
-        
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-                flagged_df.to_excel(writer, sheet_name="Flagged Students", index=False)
-        
-            output.seek(0)
-        
-            st.download_button(
-                label="⬇️ Download Flagged Students (Master List)",
-                data=output,
-                file_name="Flagged_Students_Master.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        else:
-            st.warning("No 'Concern Level' column found in the data.")
+        # ---- Flagged Students Download ----
+        # Add Concern Level classification based on PASS scale
+        def classify_concern(score):
+            if score >= 91:
+                return "Very High"
+            elif score >= 81:
+                return "Very High"
+            elif score >= 71:
+                return "High"
+            elif score >= 61:
+                return "Secure"
+            elif score >= 51:
+                return "Secure"
+            elif score >= 41:
+                return "Average"
+            elif score >= 31:
+                return "Low"
+            elif score >= 21:
+                return "Cause for Concern"
+            elif score >= 7:
+                return "Vulnerable"
+            else:
+                return "Critical"
+
+        combined["Concern Level"] = combined["Score"].apply(classify_concern)
+
+        # Filter flagged (Cause for Concern / Vulnerable / Critical)
+        flagged_df = combined[combined["Concern Level"].isin(
+            ["Cause for Concern", "Vulnerable", "Critical"]
+        )]
+        flagged_df = flagged_df.sort_values(by=["Grade", "Domain", "Student Name"])
+
+        st.markdown("### 📥 Download Flagged Students for Check-ins")
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+            # Master list
+            flagged_df.to_excel(writer, sheet_name="Flagged Students", index=False)
+            
+            # Summary by Grade × Domain
+            summary = flagged_df.groupby(["Grade", "Domain"]).size().reset_index(name="Count")
+            summary.to_excel(writer, sheet_name="Summary by Grade-Domain", index=False)
+
+        output.seek(0)
+
+        st.download_button(
+            label="⬇️ Download Flagged Students (Master + Summary)",
+            data=output,
+            file_name="Flagged_Students_Master.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
 
