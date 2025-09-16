@@ -19,6 +19,10 @@ PASS_FILES = {
     "Grade 6": "Grade 6 - PASS Report Sept 2025.xlsx",
     "Grade 7": "Grade 7 - PASS Report Sept 2025.xlsx",
     "Grade 8": "Grade 8 - PASS Report Sept 2025.xlsx",
+    "Grade 9": "Grade 9 - PASS Report Sept 2025.xlsx",
+    "Grade 10": "Grade 10 - PASS Report Sept 2025.xlsx",
+    "Grade 11": "Grade 11 - PASS Report Sept 2025.xlsx",
+    "Grade 12": "Grade 12 - PASS Report Sept 2025.xlsx",
 }
 
 
