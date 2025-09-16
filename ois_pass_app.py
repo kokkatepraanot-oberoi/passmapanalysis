@@ -638,11 +638,15 @@ with tab_compare:
 
         combined = pd.concat(rows)
 
+        # ✅ Define explicit grade order
+        grade_order = [f"Grade {i}" for i in range(6, 13)]
+
         # Pivot table: Domain x Grade (scores only)
         pivot = combined.pivot_table(index="Domain", columns="Grade", values="Score")
-        pivot = pivot.reindex(PASS_DOMAINS_NUM)
+        pivot = pivot.reindex(PASS_DOMAINS_NUM)              # ensure domains order
+        pivot = pivot[grade_order]                          # ensure grades order
 
-        # Build combined Score (Descriptor) manually
+        # Build combined Score (Descriptor)
         pivot_combined = pivot.copy()
         for grade in pivot.columns:
             descs = pivot[grade].apply(pass_descriptor)
@@ -650,7 +654,7 @@ with tab_compare:
 
         # Apply color coding
         def highlight_descriptor(val):
-            if "(" in val:
+            if "(" in str(val):
                 desc = val.split("(")[-1].strip(")")
                 return descriptor_color(desc)
             return ""
@@ -658,14 +662,16 @@ with tab_compare:
         styled = pivot_combined.style.applymap(highlight_descriptor)
         st.dataframe(styled, use_container_width=True)
 
-        # Heatmap (smaller size so table is main focus)
+        # ✅ Heatmap with angled X-axis labels
         M = pivot.values
-        fig, ax = plt.subplots(figsize=(6, 4))  # smaller plot
+        fig, ax = plt.subplots(figsize=(8, 5))  # slightly wider
         im = ax.imshow(M, aspect="auto", vmin=0, vmax=100, cmap="coolwarm")
+
         ax.set_yticks(range(len(domains)))
         ax.set_yticklabels(domains)
         ax.set_xticks(range(len(pivot.columns)))
-        ax.set_xticklabels(pivot.columns)
+        ax.set_xticklabels(pivot.columns, rotation=45, ha="right")  # angled labels
+
         ax.set_title("PASS Domain Heatmap (by Grade)")
         fig.colorbar(im, ax=ax)
         st.pyplot(fig)
