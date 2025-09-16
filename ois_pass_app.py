@@ -624,10 +624,6 @@ with tab_hrt:
             st.warning("**Cluster Concerns**\n" + "\n".join(bot))
 
 
-import io
-import pandas as pd
-import matplotlib.pyplot as plt
-
 with tab_compare:
     st.subheader("Cross-Grade Comparison (Cohort)")
 
@@ -638,7 +634,7 @@ with tab_compare:
         for g, df in by_grade.items():
             tmp = df.copy()
             tmp["Grade"] = g
-            tmp["Score"] = tmp["Score"].round(1)  # ensure 1 decimal
+            tmp["Score"] = tmp["Score"].round(1)  # keep one decimal
             rows.append(tmp)
 
         combined = pd.concat(rows)
@@ -646,18 +642,18 @@ with tab_compare:
         # ✅ Define explicit grade order
         grade_order = [f"Grade {i}" for i in range(6, 13)]
 
-        # Pivot table: Domain x Grade (scores only)
+        # Pivot (domain-level view)
         pivot = combined.pivot_table(index="Domain", columns="Grade", values="Score")
-        pivot = pivot.reindex(PASS_DOMAINS_NUM)              # ensure domains order
-        pivot = pivot[grade_order]                          # ensure grades order
+        pivot = pivot.reindex(PASS_DOMAINS_NUM)     # ensure domains order
+        pivot = pivot[grade_order]                  # ensure grades order
 
-        # Build combined Score (Descriptor)
+        # Combined table with descriptors
         pivot_combined = pivot.copy()
         for grade in pivot.columns:
             descs = pivot[grade].apply(pass_descriptor)
             pivot_combined[grade] = pivot[grade].round(1).astype(str) + " (" + descs + ")"
 
-        # Apply color coding
+        # Color coding
         def highlight_descriptor(val):
             if "(" in str(val):
                 desc = val.split("(")[-1].strip(")")
@@ -667,25 +663,23 @@ with tab_compare:
         styled = pivot_combined.style.applymap(highlight_descriptor)
         st.dataframe(styled, use_container_width=True)
 
-        # ✅ Heatmap with angled X-axis labels
+        # ✅ Heatmap
         M = pivot.values
-        fig, ax = plt.subplots(figsize=(8, 5))  # slightly wider
+        fig, ax = plt.subplots(figsize=(8, 5))
         im = ax.imshow(M, aspect="auto", vmin=0, vmax=100, cmap="coolwarm")
 
         ax.set_yticks(range(len(domains)))
         ax.set_yticklabels(domains)
         ax.set_xticks(range(len(pivot.columns)))
-        ax.set_xticklabels(pivot.columns, rotation=45, ha="right")  # angled labels
+        ax.set_xticklabels(pivot.columns, rotation=45, ha="right")
 
         ax.set_title("PASS Domain Heatmap (by Grade)")
         fig.colorbar(im, ax=ax)
         st.pyplot(fig)
 
-        # ---- Cross-Grade Insights + Actionables ----
+        # ---- Cross-Grade Insights ----
         st.markdown("### 🔎 Insights (Cross-Grade Trends)")
-        insights = []
-        declined_domains = []  # keep track of domains with declines
-        
+        insights, declined_domains = [], []
         for dom in PASS_DOMAINS_NUM:
             if dom in pivot.index:
                 vals = pivot.loc[dom].dropna()
@@ -696,35 +690,33 @@ with tab_compare:
                         declined_domains.append(dom)
                     elif trend >= 5:
                         insights.append(f"- **{dom}** improves across grades (gain {trend:.1f})")
-        
+
         if insights:
             st.info("\n".join(insights))
         else:
             st.success("No major cross-grade declines detected.")
-        
+
         # ---- Actionable Strategies ----
         st.markdown("### ✅ Actionable Strategies (Cross-Grade)")
-        
-        # Strategy map (domain → targeted strategies)
         DOMAIN_ACTIONS = {
             "1. Feelings about school": [
                 "Run belonging circles or advisory check-ins.",
                 "Pair isolated students with buddies.",
-                "Celebrate school identity in assemblies and newsletters."
+                "Celebrate school identity in assemblies."
             ],
             "2. Perceived learning capability": [
-                "Use growth-mindset language (‘not yet’ instead of ‘can’t’).",
+                "Use growth-mindset language (‘not yet’).",
                 "Provide scaffolded small wins to build mastery.",
                 "Tier tasks so every student experiences success."
             ],
             "3. Self-regard as a learner": [
-                "Highlight strengths in feedback before areas to improve.",
+                "Highlight strengths in feedback.",
                 "Encourage peer tutoring or mentoring.",
                 "Showcase student work publicly."
             ],
             "4. Preparedness for learning": [
-                "Establish planner routines and check weekly.",
-                "Use predictable lesson starters (‘Do Nows’).",
+                "Establish planner routines.",
+                "Use predictable lesson starters.",
                 "Teach time-management mini-lessons."
             ],
             "5. Attitudes to teachers": [
@@ -734,7 +726,7 @@ with tab_compare:
             ],
             "6. General work ethic": [
                 "Track effort consistently (planner/homework logs).",
-                "Recognise perseverance (effort stars, shout-outs).",
+                "Recognise perseverance (shout-outs).",
                 "Set long-term projects with milestone check-ins."
             ],
             "7. Confidence in learning": [
@@ -749,12 +741,10 @@ with tab_compare:
             ],
             "9. Response to curriculum demands": [
                 "Audit assessment calendars to reduce clustering.",
-                "Provide revision workshops and guides before exams.",
-                "Break complex tasks into smaller scaffolded steps."
+                "Provide revision workshops before exams.",
+                "Break complex tasks into scaffolded steps."
             ],
         }
-        
-        # Dynamically show strategies only for domains with declines
         if declined_domains:
             for dom in declined_domains:
                 st.markdown(f"**{dom}:**")
@@ -763,8 +753,8 @@ with tab_compare:
         else:
             st.success("No domain-specific strategies required. Maintain current strengths.")
 
-        # ---- Flagged Students Download ----
-        # Add Concern Level classification based on PASS scale
+        # ---- Student-Level Flagged Export ----
+        # PASS concern scale
         def classify_concern(score):
             if score >= 91:
                 return "Very High"
@@ -789,30 +779,35 @@ with tab_compare:
 
         combined["Concern Level"] = combined["Score"].apply(classify_concern)
 
-        # Filter flagged (Cause for Concern / Vulnerable / Critical)
+        # Only flagged students
         flagged_df = combined[combined["Concern Level"].isin(
             ["Cause for Concern", "Vulnerable", "Critical"]
         )]
-        flagged_df = flagged_df.sort_values(by=["Grade", "Domain", "Student Name"])
+
+        # Keep relevant cols (only if they exist)
+        keep_cols = [c for c in ["Student Name", "Grade", "Homeroom", "Domain", "Score", "Concern Level"] if c in flagged_df.columns]
+        flagged_df = flagged_df[keep_cols]
+
+        # Sort safely
+        sort_cols = [c for c in ["Grade", "Homeroom", "Student Name"] if c in flagged_df.columns]
+        flagged_df = flagged_df.sort_values(by=sort_cols)
 
         st.markdown("### 📥 Download Flagged Students for Check-ins")
-
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            # Master list
             flagged_df.to_excel(writer, sheet_name="Flagged Students", index=False)
-            
-            # Summary by Grade × Domain
-            summary = flagged_df.groupby(["Grade", "Domain"]).size().reset_index(name="Count")
-            summary.to_excel(writer, sheet_name="Summary by Grade-Domain", index=False)
+            if "Grade" in flagged_df.columns and "Domain" in flagged_df.columns:
+                summary = flagged_df.groupby(["Grade", "Domain"]).size().reset_index(name="Count")
+                summary.to_excel(writer, sheet_name="Summary by Grade-Domain", index=False)
 
         output.seek(0)
-
         st.download_button(
             label="⬇️ Download Flagged Students (Master + Summary)",
             data=output,
             file_name="Flagged_Students_Master.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
+
 
 
