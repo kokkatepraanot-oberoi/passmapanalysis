@@ -365,7 +365,7 @@ st.sidebar.title("")
 
 
 # ----------------- UI -----------------
-st.title("🧭 OIS JVLR - MS PASS Dashboard")
+st.title("🧭 OIS JVLR - Secondary PASS Dashboard")
 
 tab_gl, tab_hrt, tab_compare = st.tabs([
     "🧑‍💼 GL View",
