@@ -679,6 +679,8 @@ with tab_compare:
         # ---- Cross-Grade Insights + Actionables ----
         st.markdown("### 🔎 Insights (Cross-Grade Trends)")
         insights = []
+        declined_domains = []  # keep track of domains with declines
+        
         for dom in PASS_DOMAINS_NUM:
             if dom in pivot.index:
                 vals = pivot.loc[dom].dropna()
@@ -686,26 +688,73 @@ with tab_compare:
                     trend = vals.iloc[-1] - vals.iloc[0]
                     if trend <= -5:
                         insights.append(f"- **{dom}** declines across grades (drop {trend:.1f})")
+                        declined_domains.append(dom)
                     elif trend >= 5:
                         insights.append(f"- **{dom}** improves across grades (gain {trend:.1f})")
-
+        
         if insights:
             st.info("\n".join(insights))
         else:
             st.success("No major cross-grade declines detected.")
-
+        
+        # ---- Actionable Strategies ----
         st.markdown("### ✅ Actionable Strategies (Cross-Grade)")
-        st.markdown(
-            """
-- **Curriculum Demands** → Study skills workshops, scaffolded assignments, targeted Grade 8 support.  
-- **Work Ethic & Preparedness** → Structured routines (planners, peer accountability), goal-setting at transitions.  
-- **Teacher–Student Relationships** → 1:1 check-ins, positive calls home, teacher PD on relational strategies.  
-- **Grade 6** → Maintain motivation, monitor flagged students.  
-- **Grade 7** → Sustain engagement with collaborative, project-based learning.  
-- **Grade 8** → Focus on time management, mentoring, and restorative dialogue around teacher relationships.  
-            """
-        )
-
-    else:
-        st.info("No cohort data parsed to compare across grades.")
+        
+        # Strategy map (domain → targeted strategies)
+        DOMAIN_ACTIONS = {
+            "1. Feelings about school": [
+                "Run belonging circles or advisory check-ins.",
+                "Pair isolated students with buddies.",
+                "Celebrate school identity in assemblies and newsletters."
+            ],
+            "2. Perceived learning capability": [
+                "Use growth-mindset language (‘not yet’ instead of ‘can’t’).",
+                "Provide scaffolded small wins to build mastery.",
+                "Tier tasks so every student experiences success."
+            ],
+            "3. Self-regard as a learner": [
+                "Highlight strengths in feedback before areas to improve.",
+                "Encourage peer tutoring or mentoring.",
+                "Showcase student work publicly."
+            ],
+            "4. Preparedness for learning": [
+                "Establish planner routines and check weekly.",
+                "Use predictable lesson starters (‘Do Nows’).",
+                "Teach time-management mini-lessons."
+            ],
+            "5. Attitudes to teachers": [
+                "Use restorative conversations after conflicts.",
+                "Balance corrective feedback with positive calls/emails home.",
+                "Increase student voice/choice in lessons."
+            ],
+            "6. General work ethic": [
+                "Track effort consistently (planner/homework logs).",
+                "Recognise perseverance (effort stars, shout-outs).",
+                "Set long-term projects with milestone check-ins."
+            ],
+            "7. Confidence in learning": [
+                "Create safe low-stakes practice opportunities.",
+                "Celebrate risk-taking (‘best mistake of the week’).",
+                "Model struggle by ‘thinking aloud’ in lessons."
+            ],
+            "8. Attitudes to attendance": [
+                "Track attendance closely and flag dips early.",
+                "Engage families after 2–3 absences.",
+                "Run HR/class attendance challenges."
+            ],
+            "9. Response to curriculum demands": [
+                "Audit assessment calendars to reduce clustering.",
+                "Provide revision workshops and guides before exams.",
+                "Break complex tasks into smaller scaffolded steps."
+            ],
+        }
+        
+        # Dynamically show strategies only for domains with declines
+        if declined_domains:
+            for dom in declined_domains:
+                st.markdown(f"**{dom}:**")
+                for s in DOMAIN_ACTIONS.get(dom, []):
+                    st.markdown(f"- {s}")
+        else:
+            st.success("No domain-specific strategies required. Maintain current strengths.")
 
