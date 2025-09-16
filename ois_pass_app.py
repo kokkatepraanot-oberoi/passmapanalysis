@@ -758,21 +758,25 @@ with tab_compare:
         else:
             st.success("No domain-specific strategies required. Maintain current strengths.")
 
-        flagged_df = df[df["Concern Level"].isin(["Cause for Concern", "Vulnerable"])]
-        flagged_df = flagged_df.sort_values(by=["Grade", "Homeroom", "Student Name"])
+        # ---- Download Flagged Students ----
+        if "Concern Level" in combined.columns:
+            flagged_df = combined[combined["Concern Level"].isin(["Cause for Concern", "Vulnerable"])]
+            flagged_df = flagged_df.sort_values(by=["Grade", "Homeroom", "Student Name"])
         
-        st.markdown("### 📥 Download Flagged Students for Check-ins")
+            st.markdown("### 📥 Download Flagged Students for Check-ins")
         
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            flagged_df.to_excel(writer, sheet_name="Flagged Students", index=False)
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                flagged_df.to_excel(writer, sheet_name="Flagged Students", index=False)
         
-        output.seek(0)
+            output.seek(0)
         
-        st.download_button(
-            label="⬇️ Download Flagged Students (Master List)",
-            data=output,
-            file_name="Flagged_Students_Master.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+            st.download_button(
+                label="⬇️ Download Flagged Students (Master List)",
+                data=output,
+                file_name="Flagged_Students_Master.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        else:
+            st.warning("No 'Concern Level' column found in the data.")
 
