@@ -219,12 +219,22 @@ def parse_individual_profiles(src, sheet_name: str) -> pd.DataFrame:
         if "gender" in col.lower():
             df.rename(columns={col: "Gender"}, inplace=True)
 
+    # 🔄 Domain name normalisation (teachers vs tutors, etc.)
+    synonyms = {
+        "attitudes to tutors": "attitudes to teachers",
+        "attitude to tutors": "attitudes to teachers",
+    }
+    
     # Map domains + enforce numeric
     for dom in PASS_DOMAINS:
         for col in df.columns:
-            if dom.lower() in col.lower():
+            col_norm = col.lower().strip()
+            if col_norm in synonyms:
+                col_norm = synonyms[col_norm]
+            if dom.lower() in col_norm:
                 df.rename(columns={col: DOMAIN_MAP[dom]}, inplace=True)
                 df[DOMAIN_MAP[dom]] = pd.to_numeric(df[DOMAIN_MAP[dom]], errors="coerce")
+
 
     return df
 
