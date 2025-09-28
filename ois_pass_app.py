@@ -500,6 +500,13 @@ with tab_gl:
 with tab_hrt:
     gsel = st.selectbox("Select Grade (HRT View)", list(PASS_FILES.keys()), key="hrt_grade")
     dfp = parsed_profiles.get(gsel, pd.DataFrame())
+    # 🔄 Normalise domain naming inconsistencies
+    rename_map = {
+        "Attitudes to Tutors": "Attitudes to Teachers",
+        "Attitude to Tutors": "Attitudes to Teachers",   # just in case
+    }
+    dfp = dfp.rename(columns=rename_map)
+
 
     if dfp.empty:
         st.warning("No profiles data uploaded for this grade.")
